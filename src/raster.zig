@@ -54,7 +54,7 @@ pub const Raster = struct {
         const devy = y0 - 2.0 * y1 + y2;
         const devsq = devx * devx + devy * devy;
         if (devsq < 0.333) {
-            r.drawLine(x0, y0, x2, y2); //Directly draw vertical paths
+            r.drawLine(x0, y0, x2, y2); //Directly draw straight paths
             return;
         }
 
@@ -90,72 +90,82 @@ pub const Raster = struct {
         r.drawLine(px, py, x2, y2);
     }
 
+    inline fn add(r: *Raster, index: usize, v: f32) void {
+        const flag = r.bitmap[index];
+        if (flag == 0) {
+            r.buffer[index] = v * 255;
+            r.bitmap[index] = 255;
+        } else {
+            r.buffer[index] += v * 255;
+        }
+    }
+
     fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
         if (@abs(y0 - y1) <= std.math.floatEps(f32)) return; //Reject horizontal lines
 
-        var px: i32 = @intFromFloat(x0);
-        var py: i32 = @intFromFloat(y0);
+        const w: i32 = @intCast(r.width);
 
         const dx = x1 - x0;
         const dy = y1 - y0;
-        const dx2 = dx * dx;
-        const dy2 = dy * dy;
-        const norm = 1.0 / @sqrt(dx2 + dy2);
 
         const sx: i32 = if (dx < 0) -1 else 1;
-        const sy: i32 = if (dy < 0) -1 else 1;
-        const ssx = @sqrt(1.0 + dy2 / dx2) * norm;
-        const ssy = @sqrt(1.0 + dx2 / dy2) * norm;
+        const sy: i32 = if (dy < 0) -w else w;
+        const sx_f: f32 = if (dx < 0) -1.0 else 1.0;
+        const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
+        const ssx = @sqrt(1.0 / (dx * dx));
+        const ssy = @sqrt(1.0 / (dy * dy));
 
-        var tx: f32 = if (dx < 0) (x0 - @floor(x0)) * ssx else (@floor(x0) + 1 - x0) * ssx;
-        var ty: f32 = if (dy < 0) (y0 - @floor(y0)) * ssy else (@floor(y0) + 1 - y0) * ssy;
+        var plane_x: f32 = if (dx < 0) @floor(x0) - x0 else @floor(x0) + 1 - x0;
+        var plane_y: f32 = if (dy < 0) @floor(y0) - y0 else @floor(y0) + 1 - y0;
+        var tx: f32 = if (dx < 0) -plane_x * ssx else plane_x * ssx;
+        var ty: f32 = if (dy < 0) -plane_y * ssy else plane_y * ssy;
 
-        var x: f32 = x0;
+        var px: f32 = @floor(x0) - x0;
+        var x: f32 = 0;
         var y: f32 = 0;
 
-        while (true) {
-            const t = @min(1.0, @min(tx, ty));
+        var index: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * w;
+        var iter: u32 = @intFromFloat(@abs(@floor(x0) - @floor(x1)) + @abs(@floor(y0) - @floor(y1)));
 
-            const ix: f32 = x0 + t * dx;
-            const iy: f32 = t * dy;
+        std.mem.doNotOptimizeAway(tx);
+        std.mem.doNotOptimizeAway(ty);
 
-            const height = iy - y;
-            const qx: f32 = @floatFromInt(px);
-            const trapzoid_left = ((x + ix) * 0.5 - qx) * height;
-            const trapzoid_right = height - trapzoid_left;
+        if (true) return;
 
-            const index: usize = @intCast(py * @as(i32, @intCast(r.width)) + px);
-
-            const flag0 = r.bitmap[index];
-            if (flag0 == 0) {
-                r.buffer[index] = trapzoid_right * 255;
-                r.bitmap[index] = 255;
-            } else {
-                r.buffer[index] += trapzoid_right * 255;
-            }
-
-            const flag1 = r.bitmap[index + 1];
-            if (flag1 == 0) {
-                r.buffer[index + 1] = trapzoid_left * 255;
-                r.bitmap[index + 1] = 255;
-            } else {
-                r.buffer[index + 1] += trapzoid_left * 255;
-            }
-
-            if (t >= 1.0) break;
-
-            x = ix;
-            y = iy;
+        while (iter > 0) : (iter -= 1) {
+            const prev_index = index;
+            const prev_x = x;
+            const prev_y = y;
+            const prev_px = px;
 
             if (tx < ty) {
-                px += sx;
+                x = plane_x;
+                y = tx * dy;
                 tx += ssx;
+                index += sx;
+                px += sx_f;
+                plane_x += sx_f;
             } else {
-                py += sy;
+                x = ty * dx;
+                y = plane_y;
                 ty += ssy;
+                index += sy;
+                plane_y += sy_f;
             }
 
-            if (px < 0 or px >= r.width or py < 0 or py >= r.height) break;
+            const height = y - prev_y;
+            const left = ((x + prev_x) * 0.5 - prev_px) * height;
+            const right = height - left;
+
+            r.add(@intCast(prev_index), right);
+            r.add(@intCast(prev_index + 1), left);
         }
+
+        const height = y1 - y0 - y;
+        const left = ((x1 - x0 + x) * 0.5 - px) * height;
+        const right = height - left;
+
+        r.add(@intCast(index), right);
+        r.add(@intCast(index + 1), left);
     }
 };

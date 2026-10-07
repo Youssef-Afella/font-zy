@@ -67,7 +67,7 @@ pub const Font = struct {
         const h: f32 = @floatFromInt(glyph.bounds.h - glyph.bounds.y);
 
         const width: u32 = @ceil(w * scaling + 1);
-        const height: u32 = @ceil(h * scaling);
+        const height: u32 = @ceil(h * scaling + 1);
 
         return .{ width, height };
     }

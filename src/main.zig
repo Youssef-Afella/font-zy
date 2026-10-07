@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const scale = 400;
+    const scale = 40;
 
     // Parsing ------------------------------------------------------------------
     var font = try Font.load(allocator, font_bytes);
