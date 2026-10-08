@@ -48,13 +48,13 @@ pub const Raster = struct {
 
     pub fn drawQuadratic(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
         const eps = std.math.floatEps(f32);
-        if (@abs(y0 - y1) <= eps and @abs(y2 - y1) <= eps) return; //Reject horizontal paths
+        if (@abs(y0 - y1) <= eps and @abs(y2 - y1) <= eps) return;
 
         const devx = x0 - 2.0 * x1 + x2;
         const devy = y0 - 2.0 * y1 + y2;
         const devsq = devx * devx + devy * devy;
         if (devsq < 0.333) {
-            r.drawLine(x0, y0, x2, y2); //Directly draw straight paths
+            r.drawLine(x0, y0, x2, y2);
             return;
         }
 
@@ -101,36 +101,92 @@ pub const Raster = struct {
     }
 
     fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        if (@abs(y0 - y1) <= std.math.floatEps(f32)) return; //Reject horizontal lines
+        if (@abs(y0 - y1) <= std.math.floatEps(f32)) return;
 
+        if (@abs(x0 - x1) <= std.math.floatEps(f32)) {
+            r.drawVLine(x0, y0, y1);
+        } else {
+            r.drawSLine(x0, y0, x1, y1);
+        }
+    }
+
+    fn drawVLine(r: *Raster, x0: f32, y0: f32, y1: f32) void {
         const w: i32 = @intCast(r.width);
 
-        const dx = x1 - x0;
+        const x0i: f32 = @floor(x0);
+        const y0i: f32 = @floor(y0);
+        const y1i: f32 = @floor(y1);
+
         const dy = y1 - y0;
+        const idy = 1.0 / @abs(dy);
 
-        const sx: i32 = if (dx < 0) -1 else 1;
         const sy: i32 = if (dy < 0) -w else w;
-        const sx_f: f32 = if (dx < 0) -1.0 else 1.0;
         const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
-        const ssx = @sqrt(1.0 / (dx * dx));
-        const ssy = @sqrt(1.0 / (dy * dy));
+        var plane_y = if (dy < 0) y0i - y0 else y0i - y0 + 1;
+        var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
 
-        var plane_x: f32 = if (dx < 0) @floor(x0) - x0 else @floor(x0) + 1 - x0;
-        var plane_y: f32 = if (dy < 0) @floor(y0) - y0 else @floor(y0) + 1 - y0;
-        var tx: f32 = if (dx < 0) -plane_x * ssx else plane_x * ssx;
-        var ty: f32 = if (dy < 0) -plane_y * ssy else plane_y * ssy;
-
-        var px: f32 = @floor(x0) - x0;
-        var x: f32 = 0;
+        const x: f32 = x0 - x0i;
         var y: f32 = 0;
 
         var index: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * w;
-        var iter: u32 = @intFromFloat(@abs(@floor(x0) - @floor(x1)) + @abs(@floor(y0) - @floor(y1)));
+        var iter: u32 = @intFromFloat(@abs(y0i - y1i));
 
-        std.mem.doNotOptimizeAway(tx);
-        std.mem.doNotOptimizeAway(ty);
+        while (iter > 0) : (iter -= 1) {
+            const prev_index = index;
+            const prev_y = y;
 
-        if (true) return;
+            y = plane_y;
+            ty += idy;
+            index += sy;
+            plane_y += sy_f;
+
+            const height = y - prev_y;
+            const left = x * height;
+            const right = height - left;
+
+            r.add(@intCast(prev_index), right);
+            r.add(@intCast(prev_index + 1), left);
+        }
+
+        const height = dy - y;
+        const left = x * height;
+        const right = height - left;
+
+        r.add(@intCast(index), right);
+        r.add(@intCast(index + 1), left);
+    }
+
+    fn drawSLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        const w: i32 = @intCast(r.width);
+
+        const x0i: f32 = @floor(x0);
+        const x1i: f32 = @floor(x1);
+        const y0i: f32 = @floor(y0);
+        const y1i: f32 = @floor(y1);
+
+        const dx = (x1 - x0) * 0.5;
+        const idx = 0.5 / @abs(dx);
+        const dy = y1 - y0;
+        const idy = 1.0 / @abs(dy);
+
+        const sx: i32 = if (dx < 0) -1 else 1;
+        const sx_f: f32 = if (dx < 0) -1.0 else 1.0;
+        const sx_hf: f32 = if (dx < 0) -0.5 else 0.5;
+        var plane_x = if (dx < 0) x0i - x0 else x0i - x0 + 1;
+        var tx = if (dx < 0) -plane_x * idx else plane_x * idx;
+
+        const sy: i32 = if (dy < 0) -w else w;
+        const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
+        var plane_y = if (dy < 0) y0i - y0 else y0i - y0 + 1;
+        var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
+
+        var px: f32 = x0i - x0;
+        var x: f32 = 0;
+        var y: f32 = 0;
+        plane_x *= 0.5;
+
+        var index: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * w;
+        var iter: u32 = @intFromFloat(@abs(x0i - x1i) + @abs(y0i - y1i));
 
         while (iter > 0) : (iter -= 1) {
             const prev_index = index;
@@ -141,28 +197,28 @@ pub const Raster = struct {
             if (tx < ty) {
                 x = plane_x;
                 y = tx * dy;
-                tx += ssx;
+                tx += idx;
                 index += sx;
                 px += sx_f;
-                plane_x += sx_f;
+                plane_x += sx_hf;
             } else {
                 x = ty * dx;
                 y = plane_y;
-                ty += ssy;
+                ty += idy;
                 index += sy;
                 plane_y += sy_f;
             }
 
             const height = y - prev_y;
-            const left = ((x + prev_x) * 0.5 - prev_px) * height;
+            const left = (x + prev_x - prev_px) * height;
             const right = height - left;
 
             r.add(@intCast(prev_index), right);
             r.add(@intCast(prev_index + 1), left);
         }
 
-        const height = y1 - y0 - y;
-        const left = ((x1 - x0 + x) * 0.5 - px) * height;
+        const height = dy - y;
+        const left = (dx + x - px) * height;
         const right = height - left;
 
         r.add(@intCast(index), right);
