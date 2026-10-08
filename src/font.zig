@@ -29,7 +29,7 @@ pub const Font = struct {
     reader: Reader,
     unit_per_em: u16,
 
-    tables: [@typeInfo(TableTag).@"enum".fields.len]TableInfo,
+    tables: [@typeInfo(TableTag).@"enum".field_names.len]TableInfo,
     glyphs: []Glyph,
     cmap: [1000]u32, //Fine for english, any other language is not supported
 
@@ -41,7 +41,7 @@ pub const Font = struct {
         const cmap = getCmap(&reader, &tables);
 
         //Goto Head
-        reader.setPosition(tables[@intFromEnum(TableTag.head)].offset);
+        reader.setPosition(tables[@backingInt(TableTag.head)].offset);
         reader.skipBytes(18);
         const unit_per_em = reader.readInt(u16);
 
@@ -104,17 +104,17 @@ pub const Font = struct {
 
     fn getGlyphs(allocator: std.mem.Allocator, r: *Reader, tables: []const TableInfo) ![]Glyph {
         //Goto Maxp
-        r.setPosition(tables[@intFromEnum(TableTag.maxp)].offset + 4);
+        r.setPosition(tables[@backingInt(TableTag.maxp)].offset + 4);
         const num_glyph = r.readInt(u16);
 
         //Goto Head
-        r.setPosition(tables[@intFromEnum(TableTag.head)].offset);
+        r.setPosition(tables[@backingInt(TableTag.head)].offset);
         r.skipBytes(50);
         const is_two_byte = r.readInt(i16) == 0;
 
         //Goto Loca
-        const loca_table_start = tables[@intFromEnum(TableTag.loca)].offset;
-        const glyph_table_start = tables[@intFromEnum(TableTag.glyf)].offset;
+        const loca_table_start = tables[@backingInt(TableTag.loca)].offset;
+        const glyph_table_start = tables[@backingInt(TableTag.glyf)].offset;
 
         const glyphs = try allocator.alloc(Glyph, num_glyph);
 
@@ -266,7 +266,7 @@ pub const Font = struct {
     }
 
     fn getCmap(r: *Reader, tables: []const TableInfo) [1000]u32 {
-        r.setPosition(tables[@intFromEnum(TableTag.cmap)].offset + 2);
+        r.setPosition(tables[@backingInt(TableTag.cmap)].offset + 2);
         const num_cmap = r.readInt(u16);
 
         var cmap_subtable_offset: ?u32 = null;
@@ -301,7 +301,7 @@ pub const Font = struct {
             return undefined;
         }
 
-        r.setPosition(tables[@intFromEnum(TableTag.cmap)].offset + cmap_subtable_offset.?);
+        r.setPosition(tables[@backingInt(TableTag.cmap)].offset + cmap_subtable_offset.?);
         const format = r.readInt(u16);
 
         var mapping_buffer: [1000]u32 = undefined; //TODO: Full character mapping
@@ -416,13 +416,13 @@ pub const Font = struct {
         return mapping_buffer;
     }
 
-    fn getTables(r: *Reader) [@typeInfo(TableTag).@"enum".fields.len]TableInfo {
+    fn getTables(r: *Reader) [@typeInfo(TableTag).@"enum".field_names.len]TableInfo {
         r.skipBytes(4);
 
         const num_tables = r.readInt(u16);
         r.skipBytes(6);
 
-        var tables: [@typeInfo(TableTag).@"enum".fields.len]TableInfo = undefined;
+        var tables: [@typeInfo(TableTag).@"enum".field_names.len]TableInfo = undefined;
 
         for (0..num_tables) |i| {
             _ = i;
@@ -445,7 +445,7 @@ pub const Font = struct {
                 else => continue,
             };
 
-            tables[@intFromEnum(tag)] = .{
+            tables[@backingInt(tag)] = .{
                 .checksum = current_checksum,
                 .offset = current_offset,
                 .length = current_length,
