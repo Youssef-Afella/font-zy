@@ -6,7 +6,7 @@ Fastest single-threaded font rasterizer in the world, with no SIMD.
 
 ## Background
 
-I started this project after  watching[Sebastian Lague's video](https://youtu.be/SO83KQuuZvg) on text rendering and wanted to try my own approach to speed it up.
+I started this project after  watching [Sebastian Lague's video](https://youtu.be/SO83KQuuZvg) on text rendering and wanted to try my own approach to speed it up.
 
 The technic is somewhat inspired by [font-rs](https://github.com/raphlinus/font-rs), but the two differ in a few ways with font-zy giving high priority to not use any SIMD instructions for maximum portability.
 

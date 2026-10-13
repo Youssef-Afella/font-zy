@@ -1,4 +1,5 @@
 const std = @import("std");
+const eps = std.math.floatEps(f32);
 
 pub const Raster = struct {
     width: u32,
@@ -46,50 +47,6 @@ pub const Raster = struct {
         }
     }
 
-    pub fn drawQuadratic(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) void {
-        const eps = std.math.floatEps(f32);
-        if (@abs(y0 - y1) <= eps and @abs(y2 - y1) <= eps) return;
-
-        const devx = x0 - 2.0 * x1 + x2;
-        const devy = y0 - 2.0 * y1 + y2;
-        const devsq = devx * devx + devy * devy;
-        if (devsq < 0.333) {
-            r.drawLine(x0, y0, x2, y2);
-            return;
-        }
-
-        const tol = 3.0;
-        const n: f32 = 1.0 + @floor(@sqrt(@sqrt(tol * (devx * devx + devy * devy))));
-
-        var px = x0;
-        var py = y0;
-
-        const nrecip = 1.0 / n;
-        var t: f32 = 0.0;
-
-        for (0..@as(usize, @intFromFloat(n - 1))) |i| {
-            _ = i;
-
-            t += nrecip;
-            const tt = 1.0 - t;
-
-            const xx0 = tt * x0 + t * x1;
-            const xx1 = tt * x1 + t * x2;
-            const x = tt * xx0 + t * xx1;
-
-            const yy0 = tt * y0 + t * y1;
-            const yy1 = tt * y1 + t * y2;
-            const y = tt * yy0 + t * yy1;
-
-            r.drawLine(px, py, x, y);
-
-            px = x;
-            py = y;
-        }
-
-        r.drawLine(px, py, x2, y2);
-    }
-
     inline fn add(r: *Raster, index: usize, v: f32) void {
         const flag = r.bitmap[index];
         if (flag == 0) {
@@ -100,10 +57,10 @@ pub const Raster = struct {
         }
     }
 
-    fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        if (@abs(y0 - y1) <= std.math.floatEps(f32)) return;
+    pub fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        if (@abs(y0 - y1) <= eps) return;
 
-        if (@abs(x0 - x1) <= std.math.floatEps(f32)) {
+        if (@abs(x0 - x1) <= eps) {
             r.drawVLine(x0, y0, y1);
         } else {
             r.drawSLine(x0, y0, x1, y1);
