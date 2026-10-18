@@ -15,19 +15,22 @@ pub fn main(init: std.process.Init) !void {
     // Config -------------------------------------------------------------------
     const character = 'g';
     const size = 200;
-    const iterations = 1000;
+    const iterations = 5000;
 
     // Parsing ------------------------------------------------------------------
     const font = try Font.load(font_bytes);
     const scale = font.scaleForEm(size);
-    const glyph = font.glyphIndex(character);
+    const glyph = font.characterToGlyphIndex(character);
 
-    const box = font.glyphBitmapBox(glyph, scale, scale, 0, 0);
-    const w: u32 = @intCast(box.x1 - box.x0 + 2);
-    const h: u32 = @intCast(box.y1 - box.y0 + 1);
+    const box = font.glyphBitmapBox(glyph, scale);
+    const w: u32 = @intCast(box.x1 - box.x0 + 1);
+    const h: u32 = @intCast(box.y1 - box.y0);
 
-    const edges = try font.precomputeEdges(gpa, glyph, scale, scale, 0, 0);
+    const edges = try font.precomputeEdges(gpa, glyph, scale);
+    std.debug.print("Edge count : {}\n", .{edges.len});
     defer gpa.free(edges);
+
+    const buffer = try gpa.alloc(f32, w * h);
 
     // Benchmark ---------------------------------------------------------------------
     // (A much smarter approach would be to allocate the buffer once with the max size
@@ -37,20 +40,22 @@ pub fn main(init: std.process.Init) !void {
     for (0..iterations) |i| {
         _ = i;
         const bitmap = try gpa.alloc(u8, w * h);
-        const buffer = try gpa.alloc(f32, w * h);
         defer gpa.free(bitmap);
-        defer gpa.free(buffer);
 
-        var raster = Raster.init(w, h, buffer, bitmap);
-        //try font.rasterize(&raster, gpa, glyph, scale, scale, 0, 0);
+        var raster = Raster.init(buffer, bitmap, w, w);
 
         for (edges) |edge| {
-            raster.drawLine(edge.x0, edge.y0, edge.x1, edge.y1);
+            const x0 = edge.x0 * scale;
+            const x1 = edge.x1 * scale;
+            const y0 = edge.y0 * scale;
+            const y1 = edge.y1 * scale;
+            raster.drawLine(x0, y0, x1, y1);
         }
 
         raster.fill();
     }
 
+    //defer gpa.free(buffer);
     const end = std.Io.Clock.now(.awake, init.io);
 
     const duration = start.durationTo(end);
@@ -59,12 +64,18 @@ pub fn main(init: std.process.Init) !void {
 
     //Rendering an extra one to pgm ---------------------------------------------------
     const bitmap = try gpa.alloc(u8, w * h);
-    const buffer = try gpa.alloc(f32, w * h);
     defer gpa.free(bitmap);
-    defer gpa.free(buffer);
 
-    var raster = Raster.init(w, h, buffer, bitmap);
-    try font.rasterize(&raster, gpa, glyph, scale, scale, 0, 0);
+    var raster = Raster.init(buffer, bitmap, w, w);
+
+    for (edges) |edge| {
+        const x0 = edge.x0 * scale;
+        const x1 = edge.x1 * scale;
+        const y0 = edge.y0 * scale;
+        const y1 = edge.y1 * scale;
+        raster.drawLine(x0, y0, x1, y1);
+    }
+    raster.fill();
 
     try dumpPGM(init.io, bitmap, w, h, "result.pgm");
 }

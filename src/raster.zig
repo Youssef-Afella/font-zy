@@ -1,65 +1,67 @@
-const std = @import("std");
-const eps = std.math.floatEps(f32);
-
 pub const Raster = struct {
-    width: u32,
-    height: u32,
-    buffer: []f32,
-    bitmap: []u8,
-    iter: u32,
+    a: []f32,
+    b: []u8,
+    aw: u32,
+    bw: u32,
 
-    pub fn init(width: u32, height: u32, buffer: []f32, bitmap: []u8) Raster {
+    pub fn init(buffer: []f32, bitmap: []u8, buffer_width: u32, bitmap_width: u32) Raster {
         @memset(bitmap, 0);
 
         return .{
-            .width = width,
-            .height = height,
-            .buffer = buffer,
-            .bitmap = bitmap,
-            .iter = 0,
+            .a = buffer,
+            .b = bitmap,
+            .aw = buffer_width,
+            .bw = bitmap_width,
         };
     }
 
-    pub fn fill(r: *Raster) void {
-        var acc: f32 = 0.0;
-        var k: u32 = 0;
+    pub inline fn fill(r: *Raster) void {
+        const w = r.bw & ~@as(usize, 3);
 
-        const aligned_len = r.bitmap.len & ~@as(usize, 3);
+        var a_pivot: usize = 0;
+        var b_pivot: usize = 0;
 
-        while (k < aligned_len) : (k += 4) {
-            const p: *align(1) u32 = @ptrCast(r.bitmap[k..].ptr);
-            const mask: u32 = p.*;
+        while (b_pivot < r.b.len) : ({
+            b_pivot += r.bw;
+            a_pivot += r.aw;
+        }) {
+            var acc: f32 = 0.0;
+            var k: usize = 0;
 
-            if (mask == 0) {
-                const v: u8 = @intFromFloat(@max(0.0, @min(acc, 255.0)));
-                p.* = @as(u32, v) * 0x01010101;
-            } else {
-                inline for (0..4) |i| {
-                    if (r.bitmap[k + i] != 0) acc += r.buffer[k + i];
-                    r.bitmap[k + i] = @intFromFloat(@max(0.0, @min(acc, 255.0)));
+            while (k < w) : (k += 4) {
+                const p: *align(1) u32 = @ptrCast(r.b[k + b_pivot ..].ptr);
+                const mask: u32 = p.*;
+
+                if (mask == 0) {
+                    const v: u8 = @intFromFloat(@max(0.0, @min(acc, 255.0)));
+                    p.* = @as(u32, v) * 0x01010101;
+                } else {
+                    inline for (0..4) |i| {
+                        if (r.b[k + b_pivot + i] != 0) acc += r.a[k + a_pivot + i];
+                        r.b[k + b_pivot + i] = @intFromFloat(@max(0.0, @min(acc, 255.0)));
+                    }
                 }
             }
-        }
 
-        while (k < r.bitmap.len) : (k += 1) {
-            if (r.bitmap[k] != 0) acc += r.buffer[k];
-            r.bitmap[k] = @intFromFloat(@max(0.0, @min(acc, 255.0)));
+            while (k < r.bw) : (k += 1) {
+                if (r.b[k + b_pivot] != 0) acc += r.a[k + a_pivot];
+                r.b[k + b_pivot] = @intFromFloat(@max(0.0, @min(acc, 255.0)));
+            }
         }
     }
 
-    inline fn add(r: *Raster, index: usize, v: f32) void {
-        const flag = r.bitmap[index];
+    inline fn add(r: *Raster, ai: usize, bi: usize, v: f32) void {
+        const flag = r.b[bi];
         if (flag == 0) {
-            r.buffer[index] = v * 255;
-            r.bitmap[index] = 255;
+            r.a[ai] = v * 255;
+            r.b[bi] = 255;
         } else {
-            r.buffer[index] += v * 255;
+            r.a[ai] += v * 255;
         }
     }
 
-    pub fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        if (@abs(y0 - y1) <= eps) return;
-
+    pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        const eps = 0.0001;
         if (@abs(x0 - x1) <= eps) {
             r.drawVLine(x0, y0, y1);
         } else {
@@ -67,8 +69,9 @@ pub const Raster = struct {
         }
     }
 
-    fn drawVLine(r: *Raster, x0: f32, y0: f32, y1: f32) void {
-        const w: i32 = @intCast(r.width);
+    inline fn drawVLine(r: *Raster, x0: f32, y0: f32, y1: f32) void {
+        const aw: i32 = @intCast(r.aw);
+        const bw: i32 = @intCast(r.bw);
 
         const x0i: f32 = @floor(x0);
         const y0i: f32 = @floor(y0);
@@ -77,7 +80,8 @@ pub const Raster = struct {
         const dy = y1 - y0;
         const idy = 1.0 / @abs(dy);
 
-        const sy: i32 = if (dy < 0) -w else w;
+        const sya: i32 = if (dy < 0) -aw else aw;
+        const syb: i32 = if (dy < 0) -bw else bw;
         const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
         var plane_y = if (dy < 0) y0i - y0 else y0i - y0 + 1;
         var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
@@ -85,36 +89,40 @@ pub const Raster = struct {
         const x: f32 = x0 - x0i;
         var y: f32 = 0;
 
-        var index: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * w;
+        var ai: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * aw;
+        var bi: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * bw;
         var iter: u32 = @intFromFloat(@abs(y0i - y1i));
 
         while (iter > 0) : (iter -= 1) {
-            const prev_index = index;
+            const prev_ai = ai;
+            const prev_bi = bi;
             const prev_y = y;
 
             y = plane_y;
             ty += idy;
-            index += sy;
+            ai += sya;
+            bi += syb;
             plane_y += sy_f;
 
             const height = y - prev_y;
             const left = x * height;
             const right = height - left;
 
-            r.add(@intCast(prev_index), right);
-            r.add(@intCast(prev_index + 1), left);
+            r.add(@intCast(prev_ai), @intCast(prev_bi), right);
+            r.add(@intCast(prev_ai + 1), @intCast(prev_bi + 1), left);
         }
 
         const height = dy - y;
         const left = x * height;
         const right = height - left;
 
-        r.add(@intCast(index), right);
-        r.add(@intCast(index + 1), left);
+        r.add(@intCast(ai), @intCast(bi), right);
+        r.add(@intCast(ai + 1), @intCast(bi + 1), left);
     }
 
-    fn drawSLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        const w: i32 = @intCast(r.width);
+    inline fn drawSLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        const aw: i32 = @intCast(r.aw);
+        const bw: i32 = @intCast(r.bw);
 
         const x0i: f32 = @floor(x0);
         const x1i: f32 = @floor(x1);
@@ -132,7 +140,8 @@ pub const Raster = struct {
         var plane_x = if (dx < 0) x0i - x0 else x0i - x0 + 1;
         var tx = if (dx < 0) -plane_x * idx else plane_x * idx;
 
-        const sy: i32 = if (dy < 0) -w else w;
+        const sya: i32 = if (dy < 0) -aw else aw;
+        const syb: i32 = if (dy < 0) -bw else bw;
         const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
         var plane_y = if (dy < 0) y0i - y0 else y0i - y0 + 1;
         var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
@@ -142,11 +151,13 @@ pub const Raster = struct {
         var y: f32 = 0;
         plane_x *= 0.5;
 
-        var index: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * w;
+        var ai: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * aw;
+        var bi: i32 = @as(i32, @intFromFloat(x0)) + @as(i32, @intFromFloat(y0)) * bw;
         var iter: u32 = @intFromFloat(@abs(x0i - x1i) + @abs(y0i - y1i));
 
         while (iter > 0) : (iter -= 1) {
-            const prev_index = index;
+            const prev_ai = ai;
+            const prev_bi = bi;
             const prev_x = x;
             const prev_y = y;
             const prev_px = px;
@@ -155,14 +166,16 @@ pub const Raster = struct {
                 x = plane_x;
                 y = tx * dy;
                 tx += idx;
-                index += sx;
+                ai += sx;
+                bi += sx;
                 px += sx_f;
                 plane_x += sx_hf;
             } else {
                 x = ty * dx;
                 y = plane_y;
                 ty += idy;
-                index += sy;
+                ai += sya;
+                bi += syb;
                 plane_y += sy_f;
             }
 
@@ -170,15 +183,15 @@ pub const Raster = struct {
             const left = (x + prev_x - prev_px) * height;
             const right = height - left;
 
-            r.add(@intCast(prev_index), right);
-            r.add(@intCast(prev_index + 1), left);
+            r.add(@intCast(prev_ai), @intCast(prev_bi), right);
+            r.add(@intCast(prev_ai + 1), @intCast(prev_bi + 1), left);
         }
 
         const height = dy - y;
         const left = (dx + x - px) * height;
         const right = height - left;
 
-        r.add(@intCast(index), right);
-        r.add(@intCast(index + 1), left);
+        r.add(@intCast(ai), @intCast(bi), right);
+        r.add(@intCast(ai + 1), @intCast(bi + 1), left);
     }
 };
