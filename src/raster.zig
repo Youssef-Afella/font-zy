@@ -16,7 +16,7 @@ pub const Raster = struct {
     }
 
     pub inline fn fill(r: *Raster) void {
-        const w = r.bw & ~@as(usize, 3);
+        const w = r.bw & ~@as(usize, 7);
 
         var a_pivot: usize = 0;
         var b_pivot: usize = 0;
@@ -28,15 +28,15 @@ pub const Raster = struct {
             var acc: f32 = 0.0;
             var k: usize = 0;
 
-            while (k < w) : (k += 4) {
-                const p: *align(1) u32 = @ptrCast(r.b[k + b_pivot ..].ptr);
-                const mask: u32 = p.*;
+            while (k < w) : (k += 8) {
+                const p: *align(1) u64 = @ptrCast(r.b[k + b_pivot ..].ptr);
+                const mask: u64 = p.*;
 
                 if (mask == 0) {
                     const v: u8 = @intFromFloat(@max(0.0, @min(acc, 255.0)));
-                    p.* = @as(u32, v) * 0x01010101;
+                    p.* = @as(u64, v) * 0x0101010101010101;
                 } else {
-                    inline for (0..4) |i| {
+                    inline for (0..8) |i| {
                         if (r.b[k + b_pivot + i] != 0) acc += r.a[k + a_pivot + i];
                         r.b[k + b_pivot + i] = @intFromFloat(@max(0.0, @min(acc, 255.0)));
                     }

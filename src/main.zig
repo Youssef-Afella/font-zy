@@ -5,16 +5,13 @@ const Edge = @import("font.zig").Edge;
 const Raster = @import("raster.zig").Raster;
 
 pub fn main(init: std.process.Init) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-
-    const gpa = arena.allocator();
+    const gpa = std.heap.c_allocator;
 
     const font_bytes = try std.Io.Dir.cwd().readFileAlloc(init.io, "fonts/Roboto-Regular.ttf", gpa, .limited(10 * 1024 * 1024));
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 200;
+    const size = 1000;
     const iterations = 5000;
 
     // Parsing ------------------------------------------------------------------
