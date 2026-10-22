@@ -10,7 +10,7 @@ const Metrics = @import("parser/metrics.zig");
 
 const Geom = @import("geom.zig");
 
-const Raster = @import("raster.zig").Raster;
+pub const Raster = @import("raster.zig").Raster;
 
 pub const Font = struct {
     font_bytes: []const u8,
@@ -86,20 +86,37 @@ pub const Font = struct {
         };
     }
 
-    pub fn rasterize(f: *const Font, raster: *Raster, gpa: Allocator, glyph: i32, scale: f32) FontError!void {
-        const box = glyphBitmapBox(f, glyph, scale);
+    pub fn rasterize(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError![]u8 {
+        const box = Glyph.glyphBox(f, glyph) orelse BitmapBox.empty;
+        const metrics = glyphBitmapBox(f, glyph, scale);
+        const w: u32 = @intCast(metrics.x1 - metrics.x0 + 1);
+        const h: u32 = @intCast(metrics.y1 - metrics.y0 + 1);
+
+        const bitmap = try gpa.alloc(u8, w * h);
 
         const vertices = try Glyph.glyphShape(f, gpa, glyph);
         defer gpa.free(vertices);
 
+        if (vertices.len == 0) {
+            @memset(bitmap, 0);
+            return bitmap;
+        }
+
         const edges: []Edge = try Geom.getEdgeList(gpa, vertices, scale, box);
         defer gpa.free(edges);
 
+        const buffer = try gpa.alloc(f32, w * h);
+        defer gpa.free(buffer);
+
+        var raster = Raster.init(buffer, bitmap, w);
+
         for (edges) |edge| {
-            raster.drawLine(edge.x0, edge.y0, edge.x1, edge.y1);
+            raster.drawLine(edge.x0 * scale, edge.y0 * scale, edge.x1 * scale, edge.y1 * scale);
         }
 
         raster.fill();
+
+        return bitmap;
     }
 
     pub fn precomputeEdges(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError![]Edge {
@@ -124,7 +141,22 @@ pub const Font = struct {
             .y1 = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.y1)) * scale)),
         };
     }
+    pub fn glyphHorizontalMetrics(f: *const Font, glyph: i32, scale: f32) HMetrics {
+        const m = Metrics.glyphHorizontalMetrics(f, glyph);
+        return .{
+            .advance_width = @intFromFloat(@round(@as(f32, @floatFromInt(m.advance_width)) * scale)),
+            .left_side_bearing = @intFromFloat(@round(@as(f32, @floatFromInt(m.left_side_bearing)) * scale)),
+        };
+    }
 
+    pub fn verticalMetrics(f: *const Font, scale: f32) VMetrics {
+        const m = Metrics.verticalMetrics(f);
+        return .{
+            .ascent = @intFromFloat(@round(@as(f32, @floatFromInt(m.ascent)) * scale)),
+            .descent = @intFromFloat(@round(@as(f32, @floatFromInt(m.descent)) * scale)),
+            .line_gap = @intFromFloat(@round(@as(f32, @floatFromInt(m.line_gap)) * scale)),
+        };
+    }
     pub fn scaleForEm(f: *const Font, pixels: f32) f32 {
         const unit_per_em: f32 = Metrics.unitPerEm(f);
         return pixels / unit_per_em;
@@ -179,6 +211,17 @@ pub const Vertex = struct {
         v.cx = @intCast(cx);
         v.cy = @intCast(cy);
     }
+};
+
+pub const VMetrics = struct {
+    ascent: i16,
+    descent: i16,
+    line_gap: i16,
+};
+
+pub const HMetrics = struct {
+    advance_width: i16,
+    left_side_bearing: i16,
 };
 
 pub const BitmapBox = struct {

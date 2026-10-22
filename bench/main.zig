@@ -1,8 +1,10 @@
 const std = @import("std");
 
-const Font = @import("font.zig").Font;
-const Edge = @import("font.zig").Edge;
-const Raster = @import("raster.zig").Raster;
+const font_zy = @import("font-zy");
+
+const Font = font_zy.Font;
+const Edge = font_zy.Edge;
+const Raster = font_zy.Raster;
 
 pub fn main(init: std.process.Init) !void {
     const gpa = std.heap.c_allocator;
@@ -11,7 +13,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 1000;
+    const size = 200;
     const iterations = 5000;
 
     // Parsing ------------------------------------------------------------------
@@ -39,7 +41,7 @@ pub fn main(init: std.process.Init) !void {
         const bitmap = try gpa.alloc(u8, w * h);
         defer gpa.free(bitmap);
 
-        var raster = Raster.init(buffer, bitmap, w, w);
+        var raster = Raster.init(buffer, bitmap, w);
 
         for (edges) |edge| {
             const x0 = edge.x0 * scale;
@@ -63,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
     const bitmap = try gpa.alloc(u8, w * h);
     defer gpa.free(bitmap);
 
-    var raster = Raster.init(buffer, bitmap, w, w);
+    var raster = Raster.init(buffer, bitmap, w);
 
     for (edges) |edge| {
         const x0 = edge.x0 * scale;
