@@ -1,9 +1,11 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    const target = b.standardTargetOptions(.{
+        //.default_target = .{ .cpu_arch = .x86_64, .cpu_model = .baseline },
+    });
 
-    const optimize = std.builtin.OptimizeMode.debug;
+    const optimize = std.builtin.OptimizeMode.fast;
 
     const mod = b.addModule("font-zy", .{
         .root_source_file = b.path("src/font.zig"),

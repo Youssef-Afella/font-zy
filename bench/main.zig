@@ -13,7 +13,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 200;
+    const size = 40;
     const iterations = 5000;
 
     // Parsing ------------------------------------------------------------------
@@ -30,14 +30,13 @@ pub fn main(init: std.process.Init) !void {
     defer gpa.free(edges);
 
     const buffer = try gpa.alloc(f32, w * h);
+    defer gpa.free(buffer);
 
     // Benchmark ---------------------------------------------------------------------
-    // (A much smarter approach would be to allocate the buffer once with the max size
-    // of all glyphs from the head table and reuse it for all characters, but for the
-    // sake of a fair comparaison with font-rs we are doing exactly the same they are doing)
     const start = std.Io.Clock.now(.awake, init.io);
     for (0..iterations) |i| {
         _ = i;
+
         const bitmap = try gpa.alloc(u8, w * h);
         defer gpa.free(bitmap);
 
@@ -53,8 +52,6 @@ pub fn main(init: std.process.Init) !void {
 
         raster.fill();
     }
-
-    //defer gpa.free(buffer);
     const end = std.Io.Clock.now(.awake, init.io);
 
     const duration = start.durationTo(end);
@@ -64,6 +61,8 @@ pub fn main(init: std.process.Init) !void {
     //Rendering an extra one to pgm ---------------------------------------------------
     const bitmap = try gpa.alloc(u8, w * h);
     defer gpa.free(bitmap);
+    //const buffer = try gpa.alloc(f32, w * h);
+    //defer gpa.free(buffer);
 
     var raster = Raster.init(buffer, bitmap, w);
 

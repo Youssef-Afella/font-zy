@@ -36,10 +36,10 @@ pub fn main(init: std.process.Init) !void {
         const w: u32 = @intCast(box.x1 - box.x0 + 1);
         const h: u32 = @intCast(box.y1 - box.y0 + 1);
 
-        const charBitmap = try font.rasterize(gpa, glyph, scale);
-        blit(charBitmap, bitmap, @intCast(x), @intCast(vmetrics.ascent + box.y0), w, h, width);
+        const char_bitmap = try font.rasterize(gpa, glyph, scale);
+        blit(char_bitmap, bitmap, @intCast(x), @intCast(vmetrics.ascent + box.y0), w, h, width);
 
-        gpa.free(charBitmap);
+        gpa.free(char_bitmap);
 
         x += hmetrics.advance_width;
     }
