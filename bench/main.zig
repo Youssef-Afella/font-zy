@@ -1,81 +1,98 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const font_zy = @import("font-zy");
 
 const Font = font_zy.Font;
 const Edge = font_zy.Edge;
 const Raster = font_zy.Raster;
+const Dimensions = font_zy.Dimensions;
 
 pub fn main(init: std.process.Init) !void {
+    //const gpa = init.arena.allocator();
     const gpa = std.heap.c_allocator;
 
-    const font_bytes = try std.Io.Dir.cwd().readFileAlloc(init.io, "fonts/Roboto-Regular.ttf", gpa, .limited(10 * 1024 * 1024));
+    const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
+        init.io,
+        "fonts/Roboto-Regular.ttf",
+        gpa,
+        .limited(10 * 1024 * 1024),
+    );
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 40;
-    const iterations = 5000;
+    const size = 42;
 
     // Parsing ------------------------------------------------------------------
     const font = try Font.load(font_bytes);
     const scale = font.scaleForEm(size);
     const glyph = font.characterToGlyphIndex(character);
+    const dims = font.glyphDimensions(glyph, scale);
 
-    const box = font.glyphBitmapBox(glyph, scale);
-    const w: u32 = @intCast(box.x1 - box.x0 + 1);
-    const h: u32 = @intCast(box.y1 - box.y0);
-
-    const edges = try font.precomputeEdges(gpa, glyph, scale);
-    std.debug.print("Edge count : {}\n", .{edges.len});
+    //Pre-tesselating the edges like what fontdue does
+    const edges = try font.flattenEdges(gpa, glyph, scale);
     defer gpa.free(edges);
-
-    const buffer = try gpa.alloc(f32, w * h);
-    defer gpa.free(buffer);
+    std.debug.print("Edge count : {}\n", .{edges.len});
 
     // Benchmark ---------------------------------------------------------------------
-    const start = std.Io.Clock.now(.awake, init.io);
-    for (0..iterations) |i| {
-        _ = i;
-
-        const bitmap = try gpa.alloc(u8, w * h);
-        defer gpa.free(bitmap);
-
-        var raster = Raster.init(buffer, bitmap, w);
-
-        for (edges) |edge| {
-            const x0 = edge.x0 * scale;
-            const x1 = edge.x1 * scale;
-            const y0 = edge.y0 * scale;
-            const y1 = edge.y1 * scale;
-            raster.drawLine(x0, y0, x1, y1);
-        }
-
-        raster.fill();
-    }
-    const end = std.Io.Clock.now(.awake, init.io);
-
-    const duration = start.durationTo(end);
-    const fd: f32 = @floatFromInt(duration.toMicroseconds());
-    std.debug.print("\nglyph '{c}', scale {}px/em, {} iterations\nbitmap {}x{} \navg {:.3} us\n\n", .{ character, size, iterations, w, h, fd / iterations });
+    try benchmark(init.io, gpa, font, edges, dims, scale, character, size);
 
     //Rendering an extra one to pgm ---------------------------------------------------
-    const bitmap = try gpa.alloc(u8, w * h);
-    defer gpa.free(bitmap);
-    //const buffer = try gpa.alloc(f32, w * h);
-    //defer gpa.free(buffer);
+    {
+        const buffer = try gpa.alloc(f32, dims.w * dims.h);
+        const bitmap = try gpa.alloc(u8, dims.w * dims.h);
+        defer gpa.free(buffer);
+        defer gpa.free(bitmap);
 
-    var raster = Raster.init(buffer, bitmap, w);
+        font.rasterizeEdges(bitmap, buffer, edges, dims, scale);
 
-    for (edges) |edge| {
-        const x0 = edge.x0 * scale;
-        const x1 = edge.x1 * scale;
-        const y0 = edge.y0 * scale;
-        const y1 = edge.y1 * scale;
-        raster.drawLine(x0, y0, x1, y1);
+        try dumpPGM(init.io, bitmap, dims.w, dims.h, "result.pgm");
+        std.debug.print("bitmap: {}x{} px\n\n", .{ dims.w, dims.h });
     }
-    raster.fill();
+}
 
-    try dumpPGM(init.io, bitmap, w, h, "result.pgm");
+fn benchmark(io: std.Io, gpa: Allocator, font: Font, edges: []Edge, dims: Dimensions, scale: f32, character: u8, size: u32) !void {
+    const warmup_iters = 5000;
+    const sample_count = 101;
+    const batch_size = 100;
+
+    for (0..warmup_iters) |_| try runRaster(gpa, font, edges, dims, scale);
+
+    var samples: [sample_count]f64 = undefined;
+    for (&samples) |*s| {
+        const t0: f64 = @floatFromInt(std.Io.Clock.now(.awake, io).toNanoseconds());
+        for (0..batch_size) |_| try runRaster(gpa, font, edges, dims, scale);
+        const t1: f64 = @floatFromInt(std.Io.Clock.now(.awake, io).toNanoseconds());
+        s.* = (t1 - t0) / (batch_size * 1000.0);
+    }
+
+    std.mem.sort(f64, &samples, {}, std.sort.asc(f64));
+
+    std.debug.print(
+        "\nglyph '{c}', size {}px/em\n",
+        .{ character, size },
+    );
+    std.debug.print(
+        "warmup_iters {}, sample_count {}, batch_size {}\n\n",
+        .{ warmup_iters, sample_count, batch_size },
+    );
+    std.debug.print(
+        "min {} us | median {} us | p90 {d} us | max {} us\n",
+        .{ samples[0], samples[sample_count / 2], samples[sample_count * 9 / 10], samples[sample_count - 1] },
+    );
+}
+
+fn runRaster(gpa: Allocator, font: Font, edges: []Edge, dims: Dimensions, scale: f32) !void {
+    //Order of freeing is very important for the benchmark!
+    const buffer = try gpa.alloc(f32, dims.w * dims.h);
+    const bitmap = try gpa.alloc(u8, dims.w * dims.h);
+    defer gpa.free(buffer);
+    defer gpa.free(bitmap);
+
+    font.rasterizeEdges(bitmap, buffer, edges, dims, scale);
+
+    std.mem.doNotOptimizeAway(buffer);
+    std.mem.doNotOptimizeAway(bitmap);
 }
 
 fn dumpPGM(io: std.Io, bitmap: []const u8, width: u32, height: u32, filename: []const u8) !void {

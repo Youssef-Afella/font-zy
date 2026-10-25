@@ -45,14 +45,22 @@ pub const Raster = struct {
         }
     }
 
-    inline fn add(r: *Raster, i: usize, v: f32) void {
-        const flag = r.b[i];
+    inline fn add(r: *Raster, i: usize, v0: f32, v1: f32) void {
+        const flag0 = r.b[i];
+        const flag1 = r.b[i + 1];
 
-        if (flag == 0) {
-            r.a[i] = v;
+        if (flag0 == 0) {
+            r.a[i] = v0;
             r.b[i] = 255;
         } else {
-            r.a[i] += v;
+            r.a[i] += v0;
+        }
+
+        if (flag1 == 0) {
+            r.a[i + 1] = v1;
+            r.b[i + 1] = 255;
+        } else {
+            r.a[i + 1] += v1;
         }
     }
 
@@ -78,7 +86,7 @@ pub const Raster = struct {
 
         const sy: i32 = if (dy < 0) -w else w;
         const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
-        const idy = if (dy < 0) (-1.0) / dy else 1.0 / dy;
+        const idy = sy_f / dy;
         var plane_y = if (dy < 0) y0f - y0 else y0f - y0 + 1;
         var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
 
@@ -100,17 +108,13 @@ pub const Raster = struct {
             const height = y - prev_y;
             const left = x * height;
             const right = height - left;
-
-            r.add(@intCast(prev_i), right);
-            r.add(@intCast(prev_i + 1), left);
+            r.add(@intCast(prev_i), right, left);
         }
 
         const height = dy - y;
         const left = x * height;
         const right = height - left;
-
-        r.add(@intCast(i), right);
-        r.add(@intCast(i + 1), left);
+        r.add(@intCast(i), right, left);
     }
 
     inline fn drawSLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
@@ -130,13 +134,13 @@ pub const Raster = struct {
         const sx: i32 = if (dx < 0) -1 else 1;
         const sx_f: f32 = if (dx < 0) -1.0 else 1.0;
         const sx_hf: f32 = if (dx < 0) -0.5 else 0.5;
-        const idx = if (dx < 0) (-0.5) / dx else 0.5 / dx;
+        const idx = sx_hf / dx;
         var plane_x = if (dx < 0) x0f - x0 else x0f - x0 + 1;
         var tx = if (dx < 0) -plane_x * idx else plane_x * idx;
 
         const sy: i32 = if (dy < 0) -w else w;
         const sy_f: f32 = if (dy < 0) -1.0 else 1.0;
-        const idy = if (dy < 0) (-1.0) / dy else 1.0 / dy;
+        const idy = sy_f / dy;
         var plane_y = if (dy < 0) y0f - y0 else y0f - y0 + 1;
         var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
 
@@ -172,16 +176,12 @@ pub const Raster = struct {
             const height = y - prev_y;
             const left = (x + prev_x - prev_px) * height;
             const right = height - left;
-
-            r.add(@intCast(prev_i), right);
-            r.add(@intCast(prev_i + 1), left);
+            r.add(@intCast(prev_i), right, left);
         }
 
         const height = dy - y;
         const left = (dx + x - px) * height;
         const right = height - left;
-
-        r.add(@intCast(i), right);
-        r.add(@intCast(i + 1), left);
+        r.add(@intCast(i), right, left);
     }
 };

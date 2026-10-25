@@ -5,7 +5,7 @@ const Font = @import("font.zig").Font;
 const Vertex = @import("font.zig").Vertex;
 const Point = @import("font.zig").Point;
 const Edge = @import("font.zig").Edge;
-const BitmapBox = @import("font.zig").BitmapBox;
+const Rect = @import("font.zig").Rect;
 
 pub const FlatCurves = struct {
     points: []Point,
@@ -23,16 +23,16 @@ pub const FlatCurves = struct {
     }
 };
 
-pub fn getEdgeList(gpa: Allocator, vertices: []Vertex, scale: f32, box: BitmapBox) ![]Edge {
+pub fn getEdgeList(gpa: Allocator, vertices: []Vertex, scale: f32, rect: Rect) ![]Edge {
     var curves = try flattenCurves(gpa, vertices, 0.1 / scale);
     defer curves.deinit(gpa);
 
-    return try toEdgeList(gpa, curves.points, curves.contour_lengths, box);
+    return try toEdgeList(gpa, curves.points, curves.contour_lengths, rect);
 }
 
-fn toEdgeList(gpa: Allocator, pts: []Point, wcount: []u32, box: BitmapBox) ![]Edge {
-    const xmin: f32 = @floatFromInt(box.x0);
-    const ymin: f32 = @floatFromInt(box.y0);
+fn toEdgeList(gpa: Allocator, pts: []Point, wcount: []u32, rect: Rect) ![]Edge {
+    const xmin: f32 = @floatFromInt(rect.x0);
+    const ymin: f32 = @floatFromInt(rect.y0);
 
     const edge_alloc_n = n: {
         var n: u32 = 1;
@@ -127,15 +127,13 @@ fn flattenCurves(gpa: Allocator, vertices: []const Vertex, objspace_flatness: f3
 }
 
 fn tesselateQuadratic(gpa: Allocator, points: *std.ArrayList(Point), x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32, objspace_flatness_squared: f32, n: u32) !void {
-    // midpoint
     const mx: f32 = (x0 + 2 * x1 + x2) / 4;
     const my: f32 = (y0 + 2 * y1 + y2) / 4;
-    // versus directly drawn line
     const dx: f32 = (x0 + x2) / 2 - mx;
     const dy: f32 = (y0 + y2) / 2 - my;
-    if (n > 16) // 65536 segments on one curve better be enough!
+    if (n > 16)
         return;
-    if (dx * dx + dy * dy > objspace_flatness_squared) { // half-pixel error allowed... need to be smaller if AA
+    if (dx * dx + dy * dy > objspace_flatness_squared) {
         try tesselateQuadratic(gpa, points, x0, y0, (x0 + x1) / 2.0, (y0 + y1) / 2.0, mx, my, objspace_flatness_squared, n + 1);
         try tesselateQuadratic(gpa, points, mx, my, (x1 + x2) / 2.0, (y1 + y2) / 2.0, x2, y2, objspace_flatness_squared, n + 1);
     } else {

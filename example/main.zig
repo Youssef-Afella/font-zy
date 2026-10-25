@@ -12,11 +12,16 @@ pub fn main(init: std.process.Init) !void {
 
     const gpa = arena.allocator();
 
-    const text = "Youssef Afella";
+    const text = "Hello";
 
-    const font_bytes = try std.Io.Dir.cwd().readFileAlloc(init.io, "fonts/Roboto-Regular.ttf", gpa, .limited(10 * 1024 * 1024));
+    const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
+        init.io,
+        "fonts/Roboto-Regular.ttf",
+        gpa,
+        .limited(10 * 1024 * 1024),
+    );
     const font = try Font.load(font_bytes);
-    const scale = font.scaleForPixelHeight(50);
+    const scale = font.scaleForPixelHeight(60);
     const vmetrics = font.verticalMetrics(scale);
 
     const width = 400;
@@ -32,12 +37,9 @@ pub fn main(init: std.process.Init) !void {
         const glyph = font.characterToGlyphIndex(codepoint);
         const hmetrics = font.glyphHorizontalMetrics(glyph, scale);
 
-        const box = font.glyphBitmapBox(glyph, scale);
-        const w: u32 = @intCast(box.x1 - box.x0 + 1);
-        const h: u32 = @intCast(box.y1 - box.y0 + 1);
-
-        const char_bitmap = try font.rasterize(gpa, glyph, scale);
-        blit(char_bitmap, bitmap, @intCast(x), @intCast(vmetrics.ascent + box.y0), w, h, width);
+        const char_bitmap, const w, const h = try font.rasterize(gpa, glyph, scale);
+        const y: i32 = vmetrics.ascent - @as(i16, @intCast(h));
+        blit(char_bitmap, bitmap, @intCast(x), @intCast(y), w, h, width);
 
         gpa.free(char_bitmap);
 
