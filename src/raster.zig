@@ -4,14 +4,16 @@ pub const Raster = struct {
     a: []f32,
     b: []u8,
     w: u32,
+    h: u32,
 
-    pub fn init(buffer: []f32, bitmap: []u8, width: u32) Raster {
+    pub fn init(buffer: []f32, bitmap: []u8, width: u32, height: u32) Raster {
         @memset(bitmap, 0);
 
         return .{
             .a = buffer,
             .b = bitmap,
             .w = width,
+            .h = height,
         };
     }
 
@@ -29,11 +31,12 @@ pub const Raster = struct {
             const mask: stride = p.*;
 
             if (mask == 0) {
-                const v: u8 = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
-                p.* = @as(stride, v) * (std.math.maxInt(stride) / 0xFF);
+                p.* = if (acc > 0.5) std.math.maxInt(stride) else std.math.minInt(stride);
             } else {
                 inline for (0..stride_len) |i| {
-                    if (r.b[k + i] != 0) acc += r.a[k + i];
+                    if (r.b[k + i] != 0) {
+                        acc += r.a[k + i];
+                    }
                     r.b[k + i] = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
                 }
             }
@@ -47,7 +50,6 @@ pub const Raster = struct {
 
     inline fn add(r: *Raster, i: usize, v0: f32, v1: f32) void {
         const flag0 = r.b[i];
-        const flag1 = r.b[i + 1];
 
         if (flag0 == 0) {
             r.a[i] = v0;
@@ -55,6 +57,10 @@ pub const Raster = struct {
         } else {
             r.a[i] += v0;
         }
+
+        if (i == r.b.len - 1) return;
+
+        const flag1 = r.b[i + 1];
 
         if (flag1 == 0) {
             r.a[i + 1] = v1;
@@ -65,10 +71,18 @@ pub const Raster = struct {
     }
 
     pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        if (@abs(x0 - x1) <= 0.0001) {
-            r.drawVLine(x0, y0, y1);
+        const xmax: f32 = @as(f32, @floatFromInt(r.w)) - 0.001;
+        const ymax: f32 = @as(f32, @floatFromInt(r.h)) - 0.001;
+
+        const x0c = @min(x0, xmax);
+        const y0c = @min(y0, ymax);
+        const y1c = @min(y1, ymax);
+        const x1c = @min(x1, xmax);
+
+        if (@abs(x0 - x1) < 0.001) {
+            r.drawVLine(x0c, y0c, y1c);
         } else {
-            r.drawSLine(x0, y0, x1, y1);
+            r.drawSLine(x0c, y0c, x1c, y1c);
         }
     }
 

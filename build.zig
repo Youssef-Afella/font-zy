@@ -2,7 +2,8 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
-        //.default_target = .{ .cpu_arch = .x86_64, .cpu_model = .baseline },
+        .default_target = .{ .cpu_model = .native },
+        //.default_target = .{ .cpu_model = .baseline },
     });
 
     const optimize = std.builtin.OptimizeMode.fast;
@@ -19,7 +20,6 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("bench/main.zig"),
             .target = target,
             .optimize = optimize,
-            .link_libc = true,
             .imports = &.{
                 .{ .name = "font-zy", .module = mod },
             },

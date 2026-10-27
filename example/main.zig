@@ -12,7 +12,7 @@ pub fn main(init: std.process.Init) !void {
 
     const gpa = arena.allocator();
 
-    const text = "Hello";
+    const text = "Zig is fun !";
 
     const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
         init.io,
@@ -27,23 +27,24 @@ pub fn main(init: std.process.Init) !void {
     const width = 400;
     const height = 100;
     const bitmap = try gpa.alloc(u8, width * height);
-    @memset(bitmap, 0);
     defer gpa.free(bitmap);
+    @memset(bitmap, 0);
 
     var x: i32 = 0;
 
     var it = std.unicode.Utf8View.initComptime(text).iterator();
+
     while (it.nextCodepoint()) |codepoint| {
         const glyph = font.characterToGlyphIndex(codepoint);
-        const hmetrics = font.glyphHorizontalMetrics(glyph, scale);
 
-        const char_bitmap, const w, const h = try font.rasterize(gpa, glyph, scale);
-        const y: i32 = vmetrics.ascent - @as(i16, @intCast(h));
-        blit(char_bitmap, bitmap, @intCast(x), @intCast(y), w, h, width);
+        const char_bitmap, const metrics = try font.rasterize(gpa, glyph, scale);
+
+        const y: i32 = vmetrics.ascent + @as(i16, @intCast(metrics.ymin));
+        blit(char_bitmap, bitmap, @intCast(x), @intCast(y), metrics.width, metrics.height, width);
 
         gpa.free(char_bitmap);
 
-        x += hmetrics.advance_width;
+        x += metrics.advance_width;
     }
 
     try dumpPGM(init.io, bitmap, width, height, "result.pgm");

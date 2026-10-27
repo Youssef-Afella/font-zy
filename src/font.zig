@@ -83,28 +83,25 @@ pub const Font = struct {
         };
     }
 
-    pub fn rasterize(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError!struct { []u8, u32, u32 } {
-        const dims = f.glyphDimensions(glyph, scale);
+    pub fn rasterize(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError!struct { []u8, GlyphMetrics } {
+        const metrics = glyphMetrics(f, glyph, scale);
+
         const edges = try f.flattenEdges(gpa, glyph, scale);
         defer gpa.free(edges);
 
-        const buffer = try gpa.alloc(f32, dims.w * dims.h);
-        const bitmap = try gpa.alloc(u8, dims.w * dims.h);
+        const buffer = try gpa.alloc(f32, metrics.width * metrics.height);
+        const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
         defer gpa.free(buffer);
 
-        f.rasterizeEdges(bitmap, buffer, edges, dims, scale);
+        f.rasterizeEdges(bitmap, buffer, edges, &metrics, scale);
 
-        return .{
-            bitmap,
-            dims.w,
-            dims.h,
-        };
+        return .{ bitmap, metrics };
     }
 
-    pub fn rasterizeEdges(_: *const Font, bitmap: []u8, buffer: []f32, edges: []Edge, dims: Dimensions, scale: f32) void {
-        var raster = Raster.init(buffer, bitmap, dims.w);
+    pub fn rasterizeEdges(_: *const Font, bitmap: []u8, buffer: []f32, edges: []Edge, metrics: *const GlyphMetrics, scale: f32) void {
+        var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
         for (edges) |edge| {
-            raster.drawLine(edge.x0 * scale, edge.y0 * scale, edge.x1 * scale, edge.y1 * scale);
+            raster.drawLine(edge.x0 * scale + metrics.offset_x, edge.y0 * scale + metrics.offset_y, edge.x1 * scale + metrics.offset_x, edge.y1 * scale + metrics.offset_y);
         }
         raster.fill();
     }
@@ -127,11 +124,31 @@ pub const Font = struct {
         return if (i < 0) 0 else i;
     }
 
-    pub fn glyphDimensions(f: *const Font, glyph: i32, scale: f32) Dimensions {
-        const box = Glyph.glyphBox(f, glyph) orelse return .{ .w = 0, .h = 0 };
+    pub fn glyphMetrics(f: *const Font, glyph: i32, scale: f32) GlyphMetrics {
+        const box = Glyph.glyphBox(f, glyph) orelse Rect.empty;
+
+        const xmin: f32 = @as(f32, @floatFromInt(box.x0)) * scale;
+        const ymin: f32 = @as(f32, @floatFromInt(box.y0)) * scale;
+        const xmin_f: f32 = @floor(xmin);
+        const ymin_f: f32 = @floor(ymin);
+        const offset_x = xmin - xmin_f;
+        const offset_y = ymin - ymin_f;
+
+        const x0: i32 = @intFromFloat(xmin_f);
+        const y0: i32 = @intFromFloat(ymin_f);
+        const x1: i32 = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.x1)) * scale));
+        const y1: i32 = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.y1)) * scale));
+
+        const hmetrics = f.glyphHorizontalMetrics(glyph, scale);
+
         return .{
-            .w = @as(u32, @intFromFloat(@ceil(@as(f32, @floatFromInt(box.x1 - box.x0 + 1)) * scale))) + 1,
-            .h = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.y1 - box.y0 + 1)) * scale)),
+            .xmin = x0,
+            .ymin = y0,
+            .width = @intCast(x1 - x0),
+            .height = @intCast(y1 - y0),
+            .advance_width = @intCast(hmetrics.advance_width),
+            .offset_x = offset_x,
+            .offset_y = offset_y,
         };
     }
 
@@ -220,9 +237,14 @@ pub const HMetrics = struct {
     left_side_bearing: i16,
 };
 
-pub const Dimensions = struct {
-    w: u32,
-    h: u32,
+pub const GlyphMetrics = struct {
+    xmin: i32,
+    ymin: i32,
+    width: u32,
+    height: u32,
+    advance_width: i32,
+    offset_x: f32,
+    offset_y: f32,
 };
 
 pub const Rect = struct {
