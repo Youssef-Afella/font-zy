@@ -33,8 +33,8 @@ pub fn main(init: std.process.Init) !void {
     defer gpa.free(edges);
 
     //Allocations are excluded from the benchmark (zeroing is not)
-    const buffer = try gpa.alloc(f32, metrics.width * metrics.height);
-    const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
+    const buffer = try gpa.alloc(f32, metrics.width * metrics.height + 1);
+    const bitmap = try gpa.alloc(u8, metrics.width * metrics.height + 1);
     defer gpa.free(buffer);
     defer gpa.free(bitmap);
     var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);

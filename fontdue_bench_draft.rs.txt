@@ -1,0 +1,97 @@
+// The benchmark I used to compair my lib against fontdue
+// I tried to exclude anything related to memory allocations since I don't have an idea about the convention used by rust
+// I'm not a rust expert so please if I'm doing anything wrong that could disfavor the lib in the benchmark please let me know
+// Running this will require some edits in the lib regarding the permissions and the function for accumulation
+
+use fontdue::{Font, FontSettings};
+use fontdue::raster::Raster;
+use std::hint::black_box;
+use std::io::Write;
+use std::time::Instant;
+
+fn main() {
+    // Config -----------------------------------------------------------------
+    let character = 'g';
+    let size: f32 = 40.0;
+
+    // Parsing ----------------------------------------------------------------
+    let font_bytes = std::fs::read("src/Roboto-Regular.ttf").unwrap();
+    let font = Font::from_bytes(
+        font_bytes,
+        FontSettings {
+            scale: size,
+            ..FontSettings::default()
+        },
+    )
+    .unwrap();
+
+    let glyph_index = font.lookup_glyph_index(character);
+
+    let glyph = &font.glyphs[glyph_index as usize];
+    let scale = font.scale_factor(size);
+    let (metrics, offset_x, offset_y) = font.metrics_raw(scale, glyph, 0.0);
+
+    let length = metrics.width * metrics.height;
+    let mut b: Vec<u8> = unsafe {
+        // Aligned length is ceil(length / 4).
+        let aligned_length = (length + 3) >> 2;
+        let mut aligned: Vec<u32> = Vec::with_capacity(aligned_length);
+        let ptr = aligned.as_mut_ptr();
+        let cap = aligned.capacity() << 2;
+        core::mem::forget(aligned);
+        Vec::from_raw_parts(ptr as *mut u8, aligned_length << 2, cap)
+    };
+    let mut canvas = Raster::new(metrics.width, metrics.height);
+
+    // Benchmark --------------------------------------------------------------
+    println!("\nglyph '{}', size {}px/em", character, size);
+    const WARMUP_ITERS: usize = 5000;
+    const SAMPLE_COUNT: usize = 101;
+    const BATCH_SIZE: usize = 100;
+
+    for _ in 0..WARMUP_ITERS {
+        canvas.a.fill(0.0);
+        canvas.draw(&glyph, scale, scale, offset_x, offset_y);
+        canvas.get_bitmap_no_alloc(&mut b);
+
+        black_box(&b);
+    }
+
+    let mut samples = [0.0f64; SAMPLE_COUNT];
+    for s in samples.iter_mut() {
+        let t0 = Instant::now();
+        for _ in 0..BATCH_SIZE {
+            canvas.a.fill(0.0);
+            canvas.draw(&glyph, scale, scale, offset_x, offset_y);
+            canvas.get_bitmap_no_alloc(&mut b);
+
+            black_box(&b);
+        }
+        let ns = t0.elapsed().as_nanos() as f64;
+        *s = ns / (BATCH_SIZE as f64 * 1000.0);
+    }
+
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    println!(
+        "warmup_iters {}, sample_count {}, batch_size {}\n",
+        WARMUP_ITERS, SAMPLE_COUNT, BATCH_SIZE
+    );
+    println!(
+        "min {:.3} us | median {:.3} us | p90 {:.3} us | max {:.3} us",
+        samples[0],
+        samples[SAMPLE_COUNT / 2],
+        samples[SAMPLE_COUNT * 9 / 10],
+        samples[SAMPLE_COUNT - 1],
+    );
+
+    // Dump to PGM ----------------------------------------
+    dump_pgm(&b, metrics.width, metrics.height, "result.pgm");
+    println!("bitmap: {}x{} px\n", metrics.width, metrics.height);
+}
+
+fn dump_pgm(bitmap: &[u8], width: usize, height: usize, filename: &str) {
+    let mut f = std::fs::File::create(filename).unwrap();
+    write!(f, "P5\n{} {}\n255\n", width, height).unwrap();
+    f.write_all(bitmap).unwrap();
+}

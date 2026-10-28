@@ -18,18 +18,10 @@ pub const Raster = struct {
     }
 
     pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        const xmax: f32 = @as(f32, @floatFromInt(r.w)) - 0.001;
-        const ymax: f32 = @as(f32, @floatFromInt(r.h)) - 0.001;
-
-        const x0c = @min(x0, xmax);
-        const y0c = @min(y0, ymax);
-        const y1c = @min(y1, ymax);
-        const x1c = @min(x1, xmax);
-
         if (@abs(x0 - x1) < 0.001) {
-            r.drawVLine(x0c, y0c, y1c);
+            r.drawVLine(x0, y0, y1);
         } else {
-            r.drawSLine(x0c, y0c, x1c, y1c);
+            r.drawMLine(x0, y0, x1, y1);
         }
     }
 
@@ -68,6 +60,7 @@ pub const Raster = struct {
 
     inline fn add(r: *Raster, i: usize, v0: f32, v1: f32) void {
         const flag0 = r.b[i];
+        const flag1 = r.b[i + 1];
 
         if (flag0 == 0) {
             r.a[i] = v0;
@@ -75,10 +68,6 @@ pub const Raster = struct {
         } else {
             r.a[i] += v0;
         }
-
-        if (i == r.b.len - 1) return;
-
-        const flag1 = r.b[i + 1];
 
         if (flag1 == 0) {
             r.a[i + 1] = v1;
@@ -133,7 +122,7 @@ pub const Raster = struct {
         r.add(@intCast(i), right, left);
     }
 
-    inline fn drawSLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+    inline fn drawMLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
         const w: i32 = @intCast(r.w);
 
         const x0i: i32 = @intFromFloat(x0);

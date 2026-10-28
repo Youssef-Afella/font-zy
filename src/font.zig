@@ -143,7 +143,7 @@ pub const Font = struct {
         const hmetrics = f.glyphHorizontalMetrics(glyph, scale);
 
         return .{
-            .scale = scale,
+            .scale = scale * 0.999,
             .xmin = x0,
             .ymin = y0,
             .width = @intCast(x1 - x0),
