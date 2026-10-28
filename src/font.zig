@@ -93,17 +93,18 @@ pub const Font = struct {
         const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
         defer gpa.free(buffer);
 
-        f.rasterizeEdges(bitmap, buffer, edges, &metrics, scale);
-
-        return .{ bitmap, metrics };
-    }
-
-    pub fn rasterizeEdges(_: *const Font, bitmap: []u8, buffer: []f32, edges: []Edge, metrics: *const GlyphMetrics, scale: f32) void {
         var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
         for (edges) |edge| {
-            raster.drawLine(edge.x0 * scale + metrics.offset_x, edge.y0 * scale + metrics.offset_y, edge.x1 * scale + metrics.offset_x, edge.y1 * scale + metrics.offset_y);
+            raster.drawLine(
+                edge.x0 * metrics.scale + metrics.offset_x,
+                edge.y0 * metrics.scale + metrics.offset_y,
+                edge.x1 * metrics.scale + metrics.offset_x,
+                edge.y1 * metrics.scale + metrics.offset_y,
+            );
         }
         raster.fill();
+
+        return .{ bitmap, metrics };
     }
 
     pub fn flattenEdges(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError![]Edge {
@@ -142,6 +143,7 @@ pub const Font = struct {
         const hmetrics = f.glyphHorizontalMetrics(glyph, scale);
 
         return .{
+            .scale = scale,
             .xmin = x0,
             .ymin = y0,
             .width = @intCast(x1 - x0),
@@ -238,6 +240,7 @@ pub const HMetrics = struct {
 };
 
 pub const GlyphMetrics = struct {
+    scale: f32,
     xmin: i32,
     ymin: i32,
     width: u32,

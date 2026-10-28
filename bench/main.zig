@@ -37,38 +37,55 @@ pub fn main(init: std.process.Init) !void {
     const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
     defer gpa.free(buffer);
     defer gpa.free(bitmap);
+    var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
 
     // Benchmark ---------------------------------------------------------------------
     // Steps timed here are : Edges transform, Zeroing, Rasterizing, Accumulation
-    std.debug.print("\nglyph '{c}', size {}px/em\n", .{ character, size });
-    try benchmark(init.io, font, edges, &metrics, scale, buffer, bitmap);
-
-    //Rendering an extra one to pgm ---------------------------------------------------
-    {
-        font.rasterizeEdges(bitmap, buffer, edges, &metrics, scale);
-
-        try dumpPGM(init.io, bitmap, metrics.width, metrics.height, "result.pgm");
-        std.debug.print("bitmap: {}x{} px\n\n", .{ metrics.width, metrics.height });
-    }
-}
-
-fn benchmark(io: std.Io, font: Font, edges: []Edge, metrics: *const GlyphMetrics, scale: f32, buffer: []f32, bitmap: []u8) !void {
     const warmup_iters = 5000;
     const sample_count = 101;
     const batch_size = 100;
 
-    for (0..warmup_iters) |_| runRaster(font, edges, metrics, scale, buffer, bitmap);
+    for (0..warmup_iters) |_| {
+        @memset(raster.b, 0);
+
+        for (edges) |edge| {
+            raster.drawLine(
+                edge.x0 * metrics.scale + metrics.offset_x,
+                edge.y0 * metrics.scale + metrics.offset_y,
+                edge.x1 * metrics.scale + metrics.offset_x,
+                edge.y1 * metrics.scale + metrics.offset_y,
+            );
+        }
+        raster.fill();
+
+        std.mem.doNotOptimizeAway(raster.b);
+    }
 
     var samples: [sample_count]f64 = undefined;
     for (&samples) |*s| {
-        const t0: f64 = @floatFromInt(std.Io.Clock.now(.awake, io).toNanoseconds());
-        for (0..batch_size) |_| runRaster(font, edges, metrics, scale, buffer, bitmap);
-        const t1: f64 = @floatFromInt(std.Io.Clock.now(.awake, io).toNanoseconds());
+        const t0: f64 = @floatFromInt(std.Io.Clock.now(.awake, init.io).toNanoseconds());
+        for (0..batch_size) |_| {
+            @memset(raster.b, 0);
+
+            for (edges) |edge| {
+                raster.drawLine(
+                    edge.x0 * metrics.scale + metrics.offset_x,
+                    edge.y0 * metrics.scale + metrics.offset_y,
+                    edge.x1 * metrics.scale + metrics.offset_x,
+                    edge.y1 * metrics.scale + metrics.offset_y,
+                );
+            }
+            raster.fill();
+
+            std.mem.doNotOptimizeAway(raster.b);
+        }
+        const t1: f64 = @floatFromInt(std.Io.Clock.now(.awake, init.io).toNanoseconds());
         s.* = (t1 - t0) / (batch_size * 1000.0);
     }
 
     std.mem.sort(f64, &samples, {}, std.sort.asc(f64));
 
+    std.debug.print("\nglyph '{c}', size {}px/em\n", .{ character, size });
     std.debug.print(
         "warmup_iters {}, sample_count {}, batch_size {}\n\n",
         .{ warmup_iters, sample_count, batch_size },
@@ -77,13 +94,12 @@ fn benchmark(io: std.Io, font: Font, edges: []Edge, metrics: *const GlyphMetrics
         "min {} us | median {} us | p90 {d} us | max {} us\n",
         .{ samples[0], samples[sample_count / 2], samples[sample_count * 9 / 10], samples[sample_count - 1] },
     );
-}
 
-fn runRaster(font: Font, edges: []Edge, metrics: *const GlyphMetrics, scale: f32, buffer: []f32, bitmap: []u8) void {
-    font.rasterizeEdges(bitmap, buffer, edges, metrics, scale);
-
-    std.mem.doNotOptimizeAway(buffer);
-    std.mem.doNotOptimizeAway(bitmap);
+    //Rendering an extra one to pgm ---------------------------------------------------
+    {
+        try dumpPGM(init.io, bitmap, metrics.width, metrics.height, "result.pgm");
+        std.debug.print("bitmap: {}x{} px\n\n", .{ metrics.width, metrics.height });
+    }
 }
 
 fn dumpPGM(io: std.Io, bitmap: []const u8, width: u32, height: u32, filename: []const u8) !void {

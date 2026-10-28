@@ -17,9 +17,26 @@ pub const Raster = struct {
         };
     }
 
+    pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        const xmax: f32 = @as(f32, @floatFromInt(r.w)) - 0.001;
+        const ymax: f32 = @as(f32, @floatFromInt(r.h)) - 0.001;
+
+        const x0c = @min(x0, xmax);
+        const y0c = @min(y0, ymax);
+        const y1c = @min(y1, ymax);
+        const x1c = @min(x1, xmax);
+
+        if (@abs(x0 - x1) < 0.001) {
+            r.drawVLine(x0c, y0c, y1c);
+        } else {
+            r.drawSLine(x0c, y0c, x1c, y1c);
+        }
+    }
+
     pub inline fn fill(r: *Raster) void {
         const stride = u64;
         const stride_len = @sizeOf(stride);
+        const stride_mask = std.math.maxInt(stride) / 0xFF;
 
         var acc: f32 = 0.0;
         var k: u32 = 0;
@@ -31,7 +48,8 @@ pub const Raster = struct {
             const mask: stride = p.*;
 
             if (mask == 0) {
-                p.* = if (acc > 0.5) std.math.maxInt(stride) else std.math.minInt(stride);
+                const v: u8 = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
+                p.* = @as(stride, v) * stride_mask;
             } else {
                 inline for (0..stride_len) |i| {
                     if (r.b[k + i] != 0) {
@@ -67,22 +85,6 @@ pub const Raster = struct {
             r.b[i + 1] = 255;
         } else {
             r.a[i + 1] += v1;
-        }
-    }
-
-    pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        const xmax: f32 = @as(f32, @floatFromInt(r.w)) - 0.001;
-        const ymax: f32 = @as(f32, @floatFromInt(r.h)) - 0.001;
-
-        const x0c = @min(x0, xmax);
-        const y0c = @min(y0, ymax);
-        const y1c = @min(y1, ymax);
-        const x1c = @min(x1, xmax);
-
-        if (@abs(x0 - x1) < 0.001) {
-            r.drawVLine(x0c, y0c, y1c);
-        } else {
-            r.drawSLine(x0c, y0c, x1c, y1c);
         }
     }
 
