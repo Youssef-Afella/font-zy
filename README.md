@@ -1,14 +1,14 @@
 # font-zy
 
-Fastest single-threaded font rasterizer in the world, with no SIMD.
+Fastest single-threaded font rasterizer in the world, with no explicit SIMD. (WIP)
 
 **Note:** The TTF parser is minimal and exists only to demonstrate the rasterization algorithm. It is not meant for production use.
+It's a stripped down version of Andrew Kelley [TrueType](https://codeberg.org/andrewrk/TrueType/src/branch/main) project which started of as a port of [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h)
 
-## Background
+The original technic used here is from [font-rs](https://github.com/raphlinus/font-rs) explained in the author [post](https://medium.com/@raphlinus/inside-the-fastest-font-renderer-in-the-world-75ae5270c445).
 
-I started this project after  watching [Sebastian Lague's video](https://youtu.be/SO83KQuuZvg) on text rendering and wanted to try my own approach to speed it up.
+Also lot of other fast renderers libs inspired this projet such as: [fontdue](https://github.com/mooman219/fontdue/tree/master), and [titanf](https://github.com/Hoteira/titanf)
 
-The technic is somewhat inspired by [font-rs](https://github.com/raphlinus/font-rs), but the two differ in a few ways with font-zy giving high priority to not use any explicit SIMD instructions for maximum portability.
 
 ## How it works
 
