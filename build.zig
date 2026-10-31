@@ -3,7 +3,6 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{ .cpu_model = .native },
-        //.default_target = .{ .cpu_model = .baseline },
     });
 
     const optimize = std.builtin.OptimizeMode.fast;
@@ -29,6 +28,7 @@ pub fn build(b: *std.Build) void {
 
     const bench_cmd = b.addRunArtifact(bench);
     bench_cmd.step.dependOn(b.getInstallStep());
+    bench_cmd.addPassthruArgs();
 
     const bench_step = b.step("bench", "Run the benchmark");
     bench_step.dependOn(&bench_cmd.step);

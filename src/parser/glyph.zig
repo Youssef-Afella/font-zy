@@ -199,14 +199,14 @@ pub fn glyphShape(f: *const Font, gpa: Allocator, glyph: i32) ![]Vertex {
                     {
                         const x: f32 = @floatFromInt(v.x);
                         const y: f32 = @floatFromInt(v.y);
-                        v.x = @intFromFloat(m * (mtx[0] * x + mtx[2] * y + mtx[4]));
-                        v.y = @intFromFloat(n * (mtx[1] * x + mtx[3] * y + mtx[5]));
+                        v.x = @trunc(m * (mtx[0] * x + mtx[2] * y + mtx[4]));
+                        v.y = @trunc(n * (mtx[1] * x + mtx[3] * y + mtx[5]));
                     }
                     {
                         const x: f32 = @floatFromInt(v.cx);
                         const y: f32 = @floatFromInt(v.cy);
-                        v.cx = @intFromFloat(m * (mtx[0] * x + mtx[2] * y + mtx[4]));
-                        v.cy = @intFromFloat(n * (mtx[1] * x + mtx[3] * y + mtx[5]));
+                        v.cx = @trunc(m * (mtx[0] * x + mtx[2] * y + mtx[4]));
+                        v.cy = @trunc(n * (mtx[1] * x + mtx[3] * y + mtx[5]));
                     }
                 }
                 try vertices.appendSlice(gpa, comp_verts);

@@ -11,6 +11,12 @@ const GlyphMetrics = font_zy.GlyphMetrics;
 pub fn main(init: std.process.Init) !void {
     const gpa = init.arena.allocator();
 
+    //const arg = (try init.minimal.args.toSlice(gpa))[1];
+    //const val = std.fmt.parseFloat(f32, arg) catch |err| {
+    //    std.debug.print("Failed to parse '{s}' as int: {}\n", .{ arg, err });
+    //    return;
+    //};
+
     const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
         init.io,
         "fonts/Roboto-Regular.ttf",
@@ -20,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 40;
+    const size = 200;
 
     // Parsing ------------------------------------------------------------------
     const font = try Font.load(font_bytes);
@@ -85,14 +91,10 @@ pub fn main(init: std.process.Init) !void {
 
     std.mem.sort(f64, &samples, {}, std.sort.asc(f64));
 
-    std.debug.print("\nglyph '{c}', size {}px/em\n", .{ character, size });
+    //std.debug.print("glyph '{c}'\n", .{character});
     std.debug.print(
-        "warmup_iters {}, sample_count {}, batch_size {}\n\n",
-        .{ warmup_iters, sample_count, batch_size },
-    );
-    std.debug.print(
-        "min {} us | median {} us | p90 {d} us | max {} us\n",
-        .{ samples[0], samples[sample_count / 2], samples[sample_count * 9 / 10], samples[sample_count - 1] },
+        "Size {} : min {} us | median {} us | p90 {d} us | max {} us\n",
+        .{ size, samples[0], samples[sample_count / 2], samples[sample_count * 9 / 10], samples[sample_count - 1] },
     );
 
     //Rendering an extra one to pgm ---------------------------------------------------

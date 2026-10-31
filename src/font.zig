@@ -135,15 +135,15 @@ pub const Font = struct {
         const offset_x = xmin - xmin_f;
         const offset_y = ymin - ymin_f;
 
-        const x0: i32 = @intFromFloat(xmin_f);
-        const y0: i32 = @intFromFloat(ymin_f);
-        const x1: i32 = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.x1)) * scale));
-        const y1: i32 = @intFromFloat(@ceil(@as(f32, @floatFromInt(box.y1)) * scale));
+        const x0: i32 = @trunc(xmin_f);
+        const y0: i32 = @trunc(ymin_f);
+        const x1: i32 = @ceil(@as(f32, @floatFromInt(box.x1)) * scale);
+        const y1: i32 = @ceil(@as(f32, @floatFromInt(box.y1)) * scale);
 
         const hmetrics = f.glyphHorizontalMetrics(glyph, scale);
 
         return .{
-            .scale = scale * 0.999,
+            .scale = scale,
             .xmin = x0,
             .ymin = y0,
             .width = @intCast(x1 - x0),
@@ -157,17 +157,17 @@ pub const Font = struct {
     pub fn glyphHorizontalMetrics(f: *const Font, glyph: i32, scale: f32) HMetrics {
         const m = Metrics.glyphHorizontalMetrics(f, glyph);
         return .{
-            .advance_width = @intFromFloat(@round(@as(f32, @floatFromInt(m.advance_width)) * scale)),
-            .left_side_bearing = @intFromFloat(@round(@as(f32, @floatFromInt(m.left_side_bearing)) * scale)),
+            .advance_width = @round(@as(f32, @floatFromInt(m.advance_width)) * scale),
+            .left_side_bearing = @round(@as(f32, @floatFromInt(m.left_side_bearing)) * scale),
         };
     }
 
     pub fn verticalMetrics(f: *const Font, scale: f32) VMetrics {
         const m = Metrics.verticalMetrics(f);
         return .{
-            .ascent = @intFromFloat(@round(@as(f32, @floatFromInt(m.ascent)) * scale)),
-            .descent = @intFromFloat(@round(@as(f32, @floatFromInt(m.descent)) * scale)),
-            .line_gap = @intFromFloat(@round(@as(f32, @floatFromInt(m.line_gap)) * scale)),
+            .ascent = @round(@as(f32, @floatFromInt(m.ascent)) * scale),
+            .descent = @round(@as(f32, @floatFromInt(m.descent)) * scale),
+            .line_gap = @round(@as(f32, @floatFromInt(m.line_gap)) * scale),
         };
     }
 

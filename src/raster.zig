@@ -5,23 +5,35 @@ pub const Raster = struct {
     b: []u8,
     w: u32,
     h: u32,
+    mx: f32,
+    my: f32,
 
     pub fn init(buffer: []f32, bitmap: []u8, width: u32, height: u32) Raster {
         @memset(bitmap, 0);
+
+        const mx: u32 = @bitCast(@as(f32, @floatFromInt(width)));
+        const my: u32 = @bitCast(@as(f32, @floatFromInt(height)));
 
         return .{
             .a = buffer,
             .b = bitmap,
             .w = width,
             .h = height,
+            .mx = @bitCast(mx -% 1),
+            .my = @bitCast(my -% 1),
         };
     }
 
     pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
+        const cx0 = @min(@max(0.0, x0), r.mx);
+        const cx1 = @min(@max(0.0, x1), r.mx);
+        const cy0 = @min(@max(0.0, y0), r.my);
+        const cy1 = @min(@max(0.0, y1), r.my);
+
         if (@abs(x0 - x1) < 0.001) {
-            r.drawVLine(x0, y0, y1);
+            r.drawVLine(cx0, cy0, cy1);
         } else {
-            r.drawMLine(x0, y0, x1, y1);
+            r.drawMLine(cx0, cy0, cx1, cy1);
         }
     }
 
@@ -40,21 +52,21 @@ pub const Raster = struct {
             const mask: stride = p.*;
 
             if (mask == 0) {
-                const v: u8 = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
+                const v: u8 = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
                 p.* = @as(stride, v) * stride_mask;
             } else {
                 inline for (0..stride_len) |i| {
                     if (r.b[k + i] != 0) {
                         acc += r.a[k + i];
                     }
-                    r.b[k + i] = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
+                    r.b[k + i] = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
                 }
             }
         }
 
         while (k < r.b.len) : (k += 1) {
             if (r.b[k] != 0) acc += r.a[k];
-            r.b[k] = @intFromFloat(@max(0.0, @min(acc * 255.0, 255.0)));
+            r.b[k] = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
         }
     }
 
@@ -80,9 +92,9 @@ pub const Raster = struct {
     inline fn drawVLine(r: *Raster, x0: f32, y0: f32, y1: f32) void {
         const w: i32 = @intCast(r.w);
 
-        const x0i: i32 = @intFromFloat(x0);
-        const y0i: i32 = @intFromFloat(y0);
-        const y1i: i32 = @intFromFloat(y1);
+        const x0i: i32 = @trunc(x0);
+        const y0i: i32 = @trunc(y0);
+        const y1i: i32 = @trunc(y1);
 
         const x0f: f32 = @floatFromInt(x0i);
         const y0f: f32 = @floatFromInt(y0i);
@@ -125,10 +137,10 @@ pub const Raster = struct {
     inline fn drawMLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
         const w: i32 = @intCast(r.w);
 
-        const x0i: i32 = @intFromFloat(x0);
-        const x1i: i32 = @intFromFloat(x1);
-        const y0i: i32 = @intFromFloat(y0);
-        const y1i: i32 = @intFromFloat(y1);
+        const x0i: i32 = @trunc(x0);
+        const x1i: i32 = @trunc(x1);
+        const y0i: i32 = @trunc(y0);
+        const y1i: i32 = @trunc(y1);
 
         const x0f: f32 = @floatFromInt(x0i);
         const y0f: f32 = @floatFromInt(y0i);
