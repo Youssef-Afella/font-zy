@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Config -------------------------------------------------------------------
     const character = 'g';
-    const size = 200;
+    const size = 40;
 
     // Parsing ------------------------------------------------------------------
     const font = try Font.load(font_bytes);
