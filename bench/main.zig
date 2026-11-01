@@ -35,8 +35,10 @@ pub fn main(init: std.process.Init) !void {
     const metrics = font.glyphMetrics(glyph, scale);
 
     //Pre-tesselating the edges
-    const edges = try font.flattenEdges(gpa, glyph, scale);
-    defer gpa.free(edges);
+    const m_lines, const v_lines = try font.flattenEdges(gpa, glyph, scale);
+    defer gpa.free(m_lines);
+    defer gpa.free(v_lines);
+    std.debug.print("Edge Count : {}\n", .{m_lines.len + v_lines.len});
 
     //Allocations are excluded from the benchmark (zeroing is not)
     const buffer = try gpa.alloc(f32, metrics.width * metrics.height + 1);
@@ -49,19 +51,11 @@ pub fn main(init: std.process.Init) !void {
     // Steps timed here are : Edges transform, Zeroing, Rasterizing, Accumulation
     const warmup_iters = 5000;
     const sample_count = 101;
-    const batch_size = 100;
+    const batch_size = 1000;
 
     for (0..warmup_iters) |_| {
         @memset(raster.b, 0);
-
-        for (edges) |edge| {
-            raster.drawLine(
-                edge.x0 * metrics.scale + metrics.offset_x,
-                edge.y0 * metrics.scale + metrics.offset_y,
-                edge.x1 * metrics.scale + metrics.offset_x,
-                edge.y1 * metrics.scale + metrics.offset_y,
-            );
-        }
+        raster.draw(m_lines, v_lines, &metrics);
         raster.fill();
 
         std.mem.doNotOptimizeAway(raster.b);
@@ -72,15 +66,7 @@ pub fn main(init: std.process.Init) !void {
         const t0: f64 = @floatFromInt(std.Io.Clock.now(.awake, init.io).toNanoseconds());
         for (0..batch_size) |_| {
             @memset(raster.b, 0);
-
-            for (edges) |edge| {
-                raster.drawLine(
-                    edge.x0 * metrics.scale + metrics.offset_x,
-                    edge.y0 * metrics.scale + metrics.offset_y,
-                    edge.x1 * metrics.scale + metrics.offset_x,
-                    edge.y1 * metrics.scale + metrics.offset_y,
-                );
-            }
+            raster.draw(m_lines, v_lines, &metrics);
             raster.fill();
 
             std.mem.doNotOptimizeAway(raster.b);

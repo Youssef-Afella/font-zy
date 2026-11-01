@@ -1,5 +1,8 @@
 const std = @import("std");
 
+const Edge = @import("font.zig").Edge;
+const GlyphMetrics = @import("font.zig").GlyphMetrics;
+
 pub const Raster = struct {
     a: []f32,
     b: []u8,
@@ -24,15 +27,21 @@ pub const Raster = struct {
         };
     }
 
-    pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        const cx0 = @min(x0, r.mx);
-        const cx1 = @min(x1, r.mx);
-        const cy0 = @min(y0, r.my);
-        const cy1 = @min(y1, r.my);
+    pub inline fn draw(r: *Raster, m_lines: []Edge, v_lines: []Edge, metrics: *const GlyphMetrics) void {
+        for (v_lines) |line| {
+            const cx0 = @min(line.x0 * metrics.scale + metrics.offset_x, r.mx);
+            const cy0 = @min(line.y0 * metrics.scale + metrics.offset_y, r.my);
+            const cy1 = @min(line.y1 * metrics.scale + metrics.offset_y, r.my);
 
-        if (@abs(x0 - x1) < 0.001) {
             r.drawVLine(cx0, cy0, cy1);
-        } else {
+        }
+
+        for (m_lines) |line| {
+            const cx0 = @min(line.x0 * metrics.scale + metrics.offset_x, r.mx);
+            const cx1 = @min(line.x1 * metrics.scale + metrics.offset_x, r.mx);
+            const cy0 = @min(line.y0 * metrics.scale + metrics.offset_y, r.my);
+            const cy1 = @min(line.y1 * metrics.scale + metrics.offset_y, r.my);
+
             r.drawMLine(cx0, cy0, cx1, cy1);
         }
     }
@@ -65,7 +74,9 @@ pub const Raster = struct {
         }
 
         while (k < r.b.len) : (k += 1) {
-            if (r.b[k] != 0) acc += r.a[k];
+            if (r.b[k] != 0) {
+                acc += r.a[k];
+            }
             r.b[k] = @trunc(@max(0.0, @min(acc * 255.9, 255.0)));
         }
     }

@@ -86,35 +86,35 @@ pub const Font = struct {
     pub fn rasterize(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError!struct { []u8, GlyphMetrics } {
         const metrics = glyphMetrics(f, glyph, scale);
 
-        const edges = try f.flattenEdges(gpa, glyph, scale);
-        defer gpa.free(edges);
+        //const edges = try f.flattenEdges(gpa, glyph, scale);
+        //defer gpa.free(edges);
 
         const buffer = try gpa.alloc(f32, metrics.width * metrics.height);
         const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
         defer gpa.free(buffer);
 
-        var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
-        for (edges) |edge| {
-            raster.drawLine(
-                edge.x0 * metrics.scale + metrics.offset_x,
-                edge.y0 * metrics.scale + metrics.offset_y,
-                edge.x1 * metrics.scale + metrics.offset_x,
-                edge.y1 * metrics.scale + metrics.offset_y,
-            );
-        }
-        raster.fill();
+        //var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
+        //for (edges) |edge| {
+        //    raster.drawLine(
+        //        edge.x0 * metrics.scale + metrics.offset_x,
+        //        edge.y0 * metrics.scale + metrics.offset_y,
+        //        edge.x1 * metrics.scale + metrics.offset_x,
+        //        edge.y1 * metrics.scale + metrics.offset_y,
+        //    );
+        //}
+        //raster.fill();
 
         return .{ bitmap, metrics };
     }
 
-    pub fn flattenEdges(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError![]Edge {
+    pub fn flattenEdges(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError!struct { []Edge, []Edge } {
         const box = Glyph.glyphBox(f, glyph) orelse Rect.empty;
 
         const vertices = try Glyph.glyphShape(f, gpa, glyph);
         defer gpa.free(vertices);
 
         if (vertices.len == 0) {
-            return &.{};
+            return .{ &.{}, &.{} };
         }
 
         return try Geom.getEdgeList(gpa, vertices, scale, box);
