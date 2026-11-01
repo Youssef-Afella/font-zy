@@ -9,7 +9,7 @@ Other fast renderers also inspired this project, such as [fontdue](https://githu
 
 ## Example
 
-A minimal implementation lives in the `example` folder. To run it:
+A minimal implementation exist in the `example` folder. To run it:
 ```bash
 zig build example
 ```
@@ -26,9 +26,9 @@ fontdue was the fastest alternative I found, so I benchmarked against it (the be
 The advantage of font-zy technic shows strongly in very big sizes but since no one is realisticlly gonna render text at 300px/em, I divided the benchmark results into two charts: below 100px/em and above it.<br>
 At very large sizes, font-zy can reaches up to a 2x speedup!
 
-<img width="1453" height="555" alt="Pic1" src="https://github.com/user-attachments/assets/f84a0f34-b718-4e25-9e6f-369d8017e2de" />
+<img width="1464" height="562" alt="Pic1" src="https://github.com/user-attachments/assets/99934cd2-cad6-414f-9be9-4a8a380633a8" />
 
-<img width="1468" height="605" alt="Pic2" src="https://github.com/user-attachments/assets/76a21002-67e1-4d2d-b381-f10cd9f6014c" />
+<img width="1465" height="591" alt="Pic2" src="https://github.com/user-attachments/assets/6c93792f-015e-46ce-b6d7-ed8c2502a448" />
 
 ## How it works
 
