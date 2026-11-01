@@ -25,10 +25,10 @@ pub const Raster = struct {
     }
 
     pub inline fn drawLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
-        const cx0 = @min(@max(0.0, x0), r.mx);
-        const cx1 = @min(@max(0.0, x1), r.mx);
-        const cy0 = @min(@max(0.0, y0), r.my);
-        const cy1 = @min(@max(0.0, y1), r.my);
+        const cx0 = @min(x0, r.mx);
+        const cx1 = @min(x1, r.mx);
+        const cy0 = @min(y0, r.my);
+        const cy1 = @min(y1, r.my);
 
         if (@abs(x0 - x1) < 0.001) {
             r.drawVLine(cx0, cy0, cy1);
@@ -52,21 +52,21 @@ pub const Raster = struct {
             const mask: stride = p.*;
 
             if (mask == 0) {
-                const v: u8 = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
+                const v: u8 = @trunc(@max(0.0, @min(acc * 255.9, 255.0)));
                 p.* = @as(stride, v) * stride_mask;
             } else {
                 inline for (0..stride_len) |i| {
                     if (r.b[k + i] != 0) {
                         acc += r.a[k + i];
                     }
-                    r.b[k + i] = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
+                    r.b[k + i] = @trunc(@max(0.0, @min(acc * 255.9, 255.0)));
                 }
             }
         }
 
         while (k < r.b.len) : (k += 1) {
             if (r.b[k] != 0) acc += r.a[k];
-            r.b[k] = @trunc(@max(0.0, @min(acc * 255.0, 255.0)));
+            r.b[k] = @trunc(@max(0.0, @min(acc * 255.9, 255.0)));
         }
     }
 
@@ -101,10 +101,25 @@ pub const Raster = struct {
 
         const dy = y1 - y0;
 
-        const sy: i32, const sy_f: f32, var plane_y: f32 =
-            if (dy < 0) .{ -w, -1.0, y0f - y0 } else .{ w, 1.0, y0f - y0 + 1 };
-        const idy = sy_f / dy;
-        var ty = @abs(plane_y * idy);
+        var sy: i32 = undefined;
+        var sy_f: f32 = undefined;
+        var idy: f32 = undefined;
+        var plane_y: f32 = undefined;
+        var ty: f32 = undefined;
+
+        if (dy < 0.0) {
+            sy = -w;
+            sy_f = -1.0;
+            idy = -1.0 / dy;
+            plane_y = y0f - y0;
+            ty = -plane_y * idy;
+        } else {
+            sy = w;
+            sy_f = 1.0;
+            idy = 1.0 / dy;
+            plane_y = y0f - y0 + 1;
+            ty = plane_y * idy;
+        }
 
         const x: f32 = x0 - x0f;
         var y: f32 = 0;
@@ -144,18 +159,50 @@ pub const Raster = struct {
 
         const dx = (x1 - x0) * 0.5;
         const dy = y1 - y0;
+        var px = x0f - x0;
 
-        const sx: i32, const sx_f: f32, const sx_hf: f32 =
-            if (dx < 0.0) .{ -1, -1.0, -0.5 } else .{ 1, 1.0, 0.5 };
-        const idx = sx_hf / dx;
-        var px: f32 = x0f - x0;
-        var plane_x: f32 = px + @as(f32, if (dx < 0.0) 0.0 else 1.0);
-        var tx = @abs(plane_x * idx);
+        var sx: i32 = undefined;
+        var sx_f: f32 = undefined;
+        var sx_hf: f32 = undefined;
+        var idx: f32 = undefined;
+        var plane_x: f32 = undefined;
+        var tx: f32 = undefined;
 
-        const sy: i32, const sy_f: f32, var plane_y: f32 =
-            if (dy < 0) .{ -w, -1.0, y0f - y0 } else .{ w, 1.0, y0f - y0 + 1 };
-        const idy = sy_f / dy;
-        var ty = if (dy < 0) -plane_y * idy else plane_y * idy;
+        if (dx < 0.0) {
+            sx = -1;
+            sx_f = -1.0;
+            sx_hf = -0.5;
+            plane_x = px;
+            idx = -0.5 / dx;
+            tx = -plane_x * idx;
+        } else {
+            sx = 1;
+            sx_f = 1.0;
+            sx_hf = 0.5;
+            plane_x = px + 1;
+            idx = 0.5 / dx;
+            tx = plane_x * idx;
+        }
+
+        var sy: i32 = undefined;
+        var sy_f: f32 = undefined;
+        var idy: f32 = undefined;
+        var plane_y: f32 = undefined;
+        var ty: f32 = undefined;
+
+        if (dy < 0.0) {
+            sy = -w;
+            sy_f = -1.0;
+            idy = -1.0 / dy;
+            plane_y = y0f - y0;
+            ty = -plane_y * idy;
+        } else {
+            sy = w;
+            sy_f = 1.0;
+            idy = 1.0 / dy;
+            plane_y = y0f - y0 + 1;
+            ty = plane_y * idy;
+        }
 
         var x: f32 = 0;
         var y: f32 = 0;
