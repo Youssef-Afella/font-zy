@@ -86,23 +86,17 @@ pub const Font = struct {
     pub fn rasterize(f: *const Font, gpa: Allocator, glyph: i32, scale: f32) FontError!struct { []u8, GlyphMetrics } {
         const metrics = glyphMetrics(f, glyph, scale);
 
-        //const edges = try f.flattenEdges(gpa, glyph, scale);
-        //defer gpa.free(edges);
+        const m_lines, const v_lines = try f.flattenEdges(gpa, glyph, scale);
+        defer gpa.free(m_lines);
+        defer gpa.free(v_lines);
 
-        const buffer = try gpa.alloc(f32, metrics.width * metrics.height);
-        const bitmap = try gpa.alloc(u8, metrics.width * metrics.height);
+        const buffer = try gpa.alloc(f32, metrics.width * metrics.height + 1);
+        const bitmap = try gpa.alloc(u8, metrics.width * metrics.height + 1);
         defer gpa.free(buffer);
 
-        //var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
-        //for (edges) |edge| {
-        //    raster.drawLine(
-        //        edge.x0 * metrics.scale + metrics.offset_x,
-        //        edge.y0 * metrics.scale + metrics.offset_y,
-        //        edge.x1 * metrics.scale + metrics.offset_x,
-        //        edge.y1 * metrics.scale + metrics.offset_y,
-        //    );
-        //}
-        //raster.fill();
+        var raster = Raster.init(buffer, bitmap, metrics.width, metrics.height);
+        raster.draw(m_lines, v_lines, &metrics);
+        raster.fill();
 
         return .{ bitmap, metrics };
     }

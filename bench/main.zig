@@ -38,7 +38,7 @@ pub fn main(init: std.process.Init) !void {
     const m_lines, const v_lines = try font.flattenEdges(gpa, glyph, scale);
     defer gpa.free(m_lines);
     defer gpa.free(v_lines);
-    std.debug.print("Edge Count : {}\n", .{m_lines.len + v_lines.len});
+    std.debug.print("VLines: {}, MLines: {}\n", .{ v_lines.len, m_lines.len });
 
     //Allocations are excluded from the benchmark (zeroing is not)
     const buffer = try gpa.alloc(f32, metrics.width * metrics.height + 1);

@@ -1,7 +1,52 @@
 // The benchmark I used to compair my lib against fontdue
 // I tried to exclude anything related to memory allocations since I don't have an idea about the convention used by rust
 // I'm not a rust expert so please if I'm doing anything wrong that could disfavor the lib in the benchmark please let me know
-// Running this will require some edits in the lib regarding the permissions and the function for accumulation
+// Running this will require some edits in the lib regarding the permissions and the function for accumulation (get_bitmap_no_alloc)
+
+/*
+#[allow(clippy::uninit_vec)]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub fn get_bitmap_no_alloc(a: &Vec<f32>, output: &mut Vec<u8>, length: usize) {
+    #[cfg(target_arch = "x86")]
+    use core::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use core::arch::x86_64::*;
+
+    unsafe {
+        // offset = Zeroed out lanes
+        let mut offset = _mm_setzero_ps();
+        // Negative zero is important here.
+        let nzero = _mm_castps_si128(_mm_set1_ps(-0.0));
+        for i in (0..output.len()).step_by(4) {
+            // x = Read 4 floats from self.a
+            let mut x = _mm_loadu_ps(a.get_unchecked(i));
+            // x += (0.0, x[0], x[1], x[2])
+            x = _mm_add_ps(x, _mm_castsi128_ps(_mm_slli_si128(_mm_castps_si128(x), 4)));
+            // x += (0.0, 0.0, x[0], x[1])
+            x = _mm_add_ps(x, _mm_castsi128_ps(_mm_slli_si128(_mm_castps_si128(x), 8)));
+            // x += offset
+            x = _mm_add_ps(x, offset);
+
+            // y = x * 255.9
+            let y = _mm_mul_ps(x, _mm_set1_ps(255.9));
+            // y = abs(y)
+            let y = _mm_andnot_ps(_mm_castsi128_ps(nzero), y);
+            // y = Convert y to i32s and truncate
+            let mut y = _mm_cvttps_epi32(y);
+            // y = Take the first byte of each of the 4 values in y and pack them into
+            // the first 4 bytes of y.
+            y = _mm_packus_epi16(_mm_packs_epi32(y, nzero), nzero);
+
+            // Store the first 4 u8s from y in output.
+            let pointer: &mut i32 = core::mem::transmute::<&mut u8, &mut i32>(output.get_unchecked_mut(i));
+            *pointer = core::mem::transmute::<__m128i, [i32; 4]>(y)[0];
+            // offset = (x[3], x[3], x[3], x[3])
+            offset = _mm_set1_ps(core::mem::transmute::<__m128, [f32; 4]>(x)[3]);
+        }
+        output.truncate(length);
+    }
+}
+*/
 
 use fontdue::{Font, FontSettings};
 use fontdue::raster::Raster;
@@ -43,7 +88,7 @@ fn main() {
     };
     let mut canvas = Raster::new(metrics.width, metrics.height);
 
-    print!("Edge Count : {}\n", glyph.m_lines.len() + glyph.v_lines.len());
+    print!("VLines: {}, MLines: {}\n", glyph.v_lines.len(), glyph.m_lines.len());
 
     // Benchmark --------------------------------------------------------------
     const WARMUP_ITERS: usize = 5000;
