@@ -6,7 +6,6 @@ const Glyph = @import("parser/glyph.zig");
 const Metrics = @import("parser/metrics.zig");
 
 const Geom = @import("geom.zig");
-
 pub const Raster = @import("raster.zig").Raster;
 
 pub const Font = struct {
@@ -54,7 +53,7 @@ pub const Font = struct {
 
         const index_map = im: {
             var i = cmap_tables_len - 1;
-            while (i > 0) : (i -= 1) {
+            while (i >= 0) : (i -= 1) {
                 const encoding_record = cmap + 4 + 8 * i;
                 const platform_id = readInt(u16, bytes[encoding_record..][0..2]);
                 switch (platform_id) {
@@ -131,8 +130,8 @@ pub const Font = struct {
 
         const x0: i32 = @trunc(xmin_f);
         const y0: i32 = @trunc(ymin_f);
-        const x1: i32 = @ceil(@as(f32, @floatFromInt(box.x1)) * scale);
-        const y1: i32 = @ceil(@as(f32, @floatFromInt(box.y1)) * scale);
+        const x1: i32 = @ceil(@as(f32, @floatFromInt(box.x1)) * scale + offset_x);
+        const y1: i32 = @ceil(@as(f32, @floatFromInt(box.y1)) * scale + offset_y);
 
         const hmetrics = f.glyphHorizontalMetrics(glyph, scale);
 

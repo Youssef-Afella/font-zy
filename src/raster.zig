@@ -14,16 +14,16 @@ pub const Raster = struct {
     pub fn init(buffer: []f32, bitmap: []u8, width: u32, height: u32) Raster {
         @memset(bitmap, 0);
 
-        const mx: u32 = @bitCast(@as(f32, @floatFromInt(width)));
-        const my: u32 = @bitCast(@as(f32, @floatFromInt(height)));
+        const mx: i32 = @bitCast(@as(f32, @floatFromInt(width)));
+        const my: i32 = @bitCast(@as(f32, @floatFromInt(height)));
 
         return .{
             .a = buffer,
             .b = bitmap,
             .w = width,
             .h = height,
-            .mx = @bitCast(mx -% 1),
-            .my = @bitCast(my -% 1),
+            .mx = @bitCast(mx - 1),
+            .my = @bitCast(my - 1),
         };
     }
 
@@ -102,13 +102,8 @@ pub const Raster = struct {
 
     inline fn drawVLine(r: *Raster, x0: f32, y0: f32, y1: f32) void {
         const w: i32 = @intCast(r.w);
-
-        const x0i: i32 = @trunc(x0);
-        const y0i: i32 = @trunc(y0);
-        const y1i: i32 = @trunc(y1);
-
-        const x0f: f32 = @floatFromInt(x0i);
-        const y0f: f32 = @floatFromInt(y0i);
+        const x0f: f32 = @trunc(x0);
+        const y0f: f32 = @trunc(y0);
 
         const dy = y1 - y0;
 
@@ -132,11 +127,14 @@ pub const Raster = struct {
             ty = plane_y * idy;
         }
 
+        const x0i: i32 = @trunc(x0);
+        const y0i: i32 = @trunc(y0);
+        const y1i: i32 = @trunc(y1 - sy_f * 0.0001);
+        var iter: u32 = @abs(y0i - y1i);
+
         const x: f32 = x0 - x0f;
         var y: f32 = 0;
-
         var i: i32 = x0i + y0i * w;
-        var iter: u32 = @abs(y0i - y1i);
 
         while (iter > 0) : (iter -= 1) {
             const prev_i = i;
@@ -159,14 +157,8 @@ pub const Raster = struct {
 
     inline fn drawMLine(r: *Raster, x0: f32, y0: f32, x1: f32, y1: f32) void {
         const w: i32 = @intCast(r.w);
-
-        const x0i: i32 = @trunc(x0);
-        const x1i: i32 = @trunc(x1);
-        const y0i: i32 = @trunc(y0);
-        const y1i: i32 = @trunc(y1);
-
-        const x0f: f32 = @floatFromInt(x0i);
-        const y0f: f32 = @floatFromInt(y0i);
+        const x0f: f32 = @trunc(x0);
+        const y0f: f32 = @trunc(y0);
 
         const dx = (x1 - x0) * 0.5;
         const dy = y1 - y0;
@@ -215,12 +207,16 @@ pub const Raster = struct {
             ty = plane_y * idy;
         }
 
+        const x0i: i32 = @trunc(x0);
+        const y0i: i32 = @trunc(y0);
+        const x1i: i32 = @trunc(x1 - sx_f * 0.0001);
+        const y1i: i32 = @trunc(y1 - sy_f * 0.0001);
+        var iter = @abs(x1i - x0i) + @abs(y1i - y0i);
+
+        plane_x *= 0.5;
         var x: f32 = 0;
         var y: f32 = 0;
-        plane_x *= 0.5;
-
         var i: i32 = x0i + y0i * w;
-        var iter: u32 = @abs(x0i - x1i) + @abs(y0i - y1i);
 
         while (iter > 0) : (iter -= 1) {
             const prev_i = i;

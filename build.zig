@@ -1,18 +1,18 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{
-        .default_target = .{ .cpu_model = .native },
-    });
+    // Settings ----------------------------------------------------------------------
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
-    const optimize = std.builtin.OptimizeMode.fast;
-
+    // Module ------------------------------------------------------------------------
     const mod = b.addModule("font-zy", .{
         .root_source_file = b.path("src/font.zig"),
         .target = target,
         .optimize = optimize,
     });
 
+    // Bench -------------------------------------------------------------------------
     const bench = b.addExecutable(.{
         .name = "font-zy-bench",
         .root_module = b.createModule(.{
@@ -33,6 +33,7 @@ pub fn build(b: *std.Build) void {
     const bench_step = b.step("bench", "Run the benchmark");
     bench_step.dependOn(&bench_cmd.step);
 
+    // Example ---------------------------------------------------------
     const example = b.addExecutable(.{
         .name = "font-zy-example",
         .root_module = b.createModule(.{
@@ -51,4 +52,24 @@ pub fn build(b: *std.Build) void {
 
     const example_step = b.step("example", "Run the example");
     example_step.dependOn(&example_cmd.step);
+
+    // Test ---------------------------------------------------------
+    const tester = b.addExecutable(.{
+        .name = "font-zy-test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("test/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "font-zy", .module = mod },
+            },
+        }),
+    });
+    b.installArtifact(tester);
+
+    const tester_cmd = b.addRunArtifact(tester);
+    tester_cmd.step.dependOn(b.getInstallStep());
+
+    const tester_step = b.step("test", "Run the test");
+    tester_step.dependOn(&tester_cmd.step);
 }

@@ -1,30 +1,24 @@
 const std = @import("std");
 
-const font_zy = @import("font-zy");
-
-const Font = font_zy.Font;
-const Edge = font_zy.Edge;
-const Raster = font_zy.Raster;
+const Font = @import("font-zy").Font;
 
 pub fn main(init: std.process.Init) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    const gpa = std.heap.page_allocator;
 
-    const gpa = arena.allocator();
-
-    const text = "Zig is fun !";
+    const text = "the quick brown fox jumps over the lazy dog";
+    //const text = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG";
 
     const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
         init.io,
-        "fonts/Roboto-Regular.ttf",
+        "fonts/JetBrainsMono/JetBrainsMono-Medium.ttf",
         gpa,
         .limited(10 * 1024 * 1024),
     );
     const font = try Font.load(font_bytes);
-    const scale = font.scaleForPixelHeight(60);
+    const scale = font.scaleForEm(64);
     const vmetrics = font.verticalMetrics(scale);
 
-    const width = 400;
+    const width = 1800;
     const height = 100;
     const bitmap = try gpa.alloc(u8, width * height);
     defer gpa.free(bitmap);

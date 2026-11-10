@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
 
     const font_bytes = try std.Io.Dir.cwd().readFileAlloc(
         init.io,
-        "fonts/Roboto-Regular.ttf",
+        "fonts/Roboto/Roboto-Regular.ttf",
         gpa,
         .limited(10 * 1024 * 1024),
     );
