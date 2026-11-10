@@ -21,7 +21,7 @@ zig build example
 To run the benchmark provided in the repo:
 
 ```bash
-zig build bench
+zig build bench -Doptimize=fast
 ```
 
 [fontdue](https://github.com/mooman219/fontdue/tree/master) was the fastest lib I could find, so I benchmarked against it (the benchmark code is in the repo).<br>
